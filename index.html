@@ -6,28 +6,24 @@
     <title>sub5conscious</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    
     <style>
         :root {
             --bg: #0f172a; --panel: #1e293b; --text: #f8fafc;
             --border: #334155; --accent: #3b82f6;
             --p1: #3b82f6; --p2: #ec4899;
         }
-        body {
-            font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text);
-            margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden;
-        }
-
-        /* Header */
-        #header { width: 100%; padding: 15px 0; background: var(--panel); border-bottom: 1px solid var(--border); text-align: center; }
-        .timer-bar { display: flex; justify-content: center; gap: 40px; font-size: 2rem; font-weight: 800; font-family: 'Courier New', monospace; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; }
+        
+        /* UI Components */
+        #header { width: 100%; padding: 10px 0; background: var(--panel); border-bottom: 1px solid var(--border); text-align: center; z-index: 10; }
+        .timer-bar { display: flex; justify-content: center; gap: 30px; font-size: 1.8rem; font-weight: 900; font-family: monospace; }
         .p-box { opacity: 0.2; transition: 0.4s; }
         .p-box.active { opacity: 1; color: var(--accent); transform: scale(1.1); }
-        #status-msg { font-size: 0.9rem; color: var(--accent); margin-bottom: 5px; min-height: 1.2em; letter-spacing: 2px; }
+        #status-msg { font-size: 0.8rem; color: var(--accent); min-height: 1.2em; letter-spacing: 2px; text-transform: uppercase; }
 
-        /* Board */
+        /* Game Board */
         #board-area { flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
-        #board { display: grid; grid-template-columns: repeat(8, 1fr); width: 90vw; height: 90vw; max-width: 450px; background: var(--border); gap: 1px; border: 2px solid var(--border); }
+        #board { display: grid; grid-template-columns: repeat(8, 1fr); width: 92vw; height: 92vw; max-width: 450px; background: var(--border); gap: 1px; border: 2px solid var(--border); }
         .cell { background: var(--panel); position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .token { width: 80%; height: 80%; border-radius: 50%; transition: 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); transform: scale(0); pointer-events: none; }
         .token.show { transform: scale(1); }
@@ -37,19 +33,15 @@
         /* Overlays */
         .overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 3000; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
         .section { background: var(--panel); padding: 20px; border-radius: 12px; width: 100%; max-width: 350px; margin-bottom: 15px; border: 1px solid var(--border); }
-        button { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin: 8px 0; font-size: 1rem; }
+        button { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin: 5px 0; font-size: 1rem; }
         button.primary { background: var(--accent); border: none; }
         
-        /* Special Layers */
         #pass-overlay { background: #000; color: #fff; text-align: center; }
-        #pass-overlay h1 { font-size: 1.2rem; margin-bottom: 40px; }
-
         #top-controls { position: fixed; bottom: 25px; right: 25px; display: flex; gap: 15px; z-index: 2000; }
         .ctrl-btn { width: 55px; height: 55px; background: var(--panel); border: 1px solid var(--border); border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.4); font-size: 1.5rem; }
-        
+
         @keyframes winAnim { 0%,100%{transform:scale(1);} 50%{transform:scale(1.2); filter:brightness(1.3);} }
         .win-token { animation: winAnim 0.6s infinite; z-index: 10; }
-        .dimmed { opacity: 0.1 !important; }
     </style>
 </head>
 <body>
@@ -65,46 +57,41 @@
     <div id="board-area"><div id="board"></div></div>
 
     <div id="menu-overlay" class="overlay" style="display: flex;">
-        <h1 style="font-size: 3rem; margin-bottom: 40px; letter-spacing: -2px;">sub5conscious</h1>
+        <h1 style="font-size: 2.8rem; margin-bottom: 40px; letter-spacing: -2px;">sub5conscious</h1>
         <div class="section">
-            <button class="primary" onclick="startGame('offline')">OFFLINE START</button>
+            <button class="primary" onclick="setupGame('offline')">2P OFFLINE</button>
+            <button class="primary" onclick="setupGame('ai')">VS LEARNING AI</button>
             <button class="primary" onclick="showOnlineSetup()">ONLINE MATCH</button>
         </div>
-        <button onclick="showLogs()" style="width:auto; font-size:0.8rem; opacity:0.6; border:none;">ANALYSIS LOG</button>
+        <button onclick="showLogs()" style="opacity:0.6; border:none; font-size:0.8rem;">ANALYTICS & LOG</button>
     </div>
 
     <div id="pass-overlay" class="overlay">
-        <h1 id="pass-player-name">PLAYER 2 のターン</h1>
-        <p style="opacity:0.6;">端末を渡してください</p>
-        <button onclick="resumeGame()" style="background:#fff; color:#000; width:220px; margin-top:50px; border-radius:50px;">受け取りました</button>
-    </div>
-
-    <div id="online-overlay" class="overlay">
-        <h2>ONLINE SETUP</h2>
-        <div class="section">
-            <input type="text" id="match-kw" placeholder="キーワードを入力" style="width:100%; padding:15px; background:#0f172a; border:1px solid var(--border); color:#fff; border-radius:8px; box-sizing:border-box;">
-            <button class="primary" onclick="connectOnline()" style="margin-top:15px;">CONNECT</button>
-        </div>
-        <button onclick="closeOverlays()" style="border:none; opacity:0.5;">CANCEL</button>
+        <h1 id="pass-player-name">PLAYER 2 TURN</h1>
+        <p style="opacity:0.5;">Please pass the device</p>
+        <button onclick="resumeFromPass()" style="background:#fff; color:#000; width:220px; margin-top:40px; border-radius:50px;">I RECEIVED IT</button>
     </div>
 
     <div id="settings-overlay" class="overlay">
-        <h2>SETTINGS</h2>
+        <h2>OPTIONS</h2>
         <div class="section">
-            <label style="font-size:0.8rem; display:block; margin-bottom:10px;">TIME CONTROL</label>
-            <div style="display:flex; gap:10px;">
-                <input type="number" id="cfg-min" value="10" style="width:50%; padding:10px;">
-                <input type="number" id="cfg-byo" value="30" style="width:50%; padding:10px;">
+            <label style="font-size:0.7rem;">TIMER (MIN / BYOYOMI)</label>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <input type="number" id="cfg-min" value="10" style="width:50%; padding:10px; background:#0f172a; color:#fff; border:1px solid var(--border);">
+                <input type="number" id="cfg-byo" value="30" style="width:50%; padding:10px; background:#0f172a; color:#fff; border:1px solid var(--border);">
             </div>
             <button class="primary" onclick="applySettings()" style="margin-top:15px;">APPLY & RESET</button>
         </div>
         <button onclick="closeOverlays()">CLOSE</button>
     </div>
 
-    <div id="log-overlay" class="overlay">
-        <h2>STATISTICS</h2>
-        <div class="section"><pre id="log-box" style="text-align:left; color:#10b981; font-family:monospace; font-size:0.8rem; height:200px; overflow-y:auto;"></pre></div>
-        <button onclick="closeOverlays()">CLOSE</button>
+    <div id="online-overlay" class="overlay">
+        <h2>ONLINE CONNECT</h2>
+        <div class="section">
+            <input type="text" id="match-kw" placeholder="KEYWORD" style="width:100%; padding:15px; background:#0f172a; border:1px solid var(--border); color:#fff; border-radius:8px;">
+            <button class="primary" onclick="connectOnline()" style="margin-top:15px;">CONNECT</button>
+        </div>
+        <button onclick="closeOverlays()">BACK</button>
     </div>
 
     <div id="top-controls">
@@ -113,7 +100,7 @@
     </div>
 
     <script>
-        // --- Firebase Config ---
+        // --- Core Setup ---
         const firebaseConfig = {
             apiKey: "AIzaSyAIkCvmJVZE9qzeAPFTIEijsuZ_HGRiUlA",
             authDomain: "sub5conscious.firebaseapp.com",
@@ -123,26 +110,32 @@
             messagingSenderId: "774659474330",
             appId: "1:774659474330:web:d1ff3843a96f6e6001b023"
         };
-        
-        let db = null, dbRef = null;
-        try { firebase.initializeApp(firebaseConfig); db = firebase.database(); } catch(e) {}
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
 
-        // --- Game State ---
-        let SIZE = 8, board = [], currentPlayer = 1, winLine = null;
-        let p1Time = 600, p2Time = 600, p1Byo = 30, p2Byo = 30;
-        let configMin = 10, configByo = 30, timerId = null;
-        let mode = 'offline', myId = 1, firstSelect = null, isPassing = false;
+        let SIZE = 8, board = [], currentPlayer = 1, winLine = null, moveHistory = [];
+        let p1Time = 600, p2Time = 600, p1Byo = 30, p2Byo = 30, configMin = 10, configByo = 30;
+        let timerId = null, mode = 'offline', myId = 1, firstSelect = null, isPassing = false, dbRef = null;
+        let learnedData = [];
 
-        function startGame(m) {
+        // --- Game Logic ---
+        async function setupGame(m) {
             mode = m;
             document.querySelectorAll('.overlay').forEach(o => o.style.display = 'none');
-            resetGame();
+            if(mode === 'ai') await loadAIKnowledge();
+            initBoard();
         }
 
-        function resetGame() {
+        async function loadAIKnowledge() {
+            const snap = await db.ref('game_logs').limitToLast(30).once('value');
+            learnedData = [];
+            snap.forEach(s => { if(s.val().history) learnedData.push(...s.val().history); });
+        }
+
+        function initBoard() {
             clearInterval(timerId);
             board = Array.from({length:SIZE}, () => Array(SIZE).fill(null).map(() => ({p:0, open:false})));
-            currentPlayer = 1; winLine = null; firstSelect = null; isPassing = false;
+            currentPlayer = 1; winLine = null; firstSelect = null; isPassing = false; moveHistory = [];
             p1Time = configMin * 60; p2Time = p1Time; p1Byo = configByo; p2Byo = configByo;
             
             const grid = document.getElementById('board');
@@ -152,13 +145,10 @@
                     let cell = document.createElement('div');
                     cell.className = 'cell';
                     cell.onclick = () => handleCellClick(r, c);
-                    let t = document.createElement('div');
-                    t.className = 'token';
-                    cell.appendChild(t);
-                    grid.appendChild(cell);
+                    let t = document.createElement('div'); t.className = 'token';
+                    cell.appendChild(t); grid.appendChild(cell);
                 }
             }
-            if(mode === 'online' && dbRef && myId === 1) syncOnline();
             startTimer();
             updateUI();
         }
@@ -170,62 +160,77 @@
             if(!firstSelect) {
                 firstSelect = {r, c};
             } else {
-                let dr = Math.abs(r - firstSelect.r), dc = Math.abs(c - firstSelect.c);
-                if(dr === 0 && dc === 0) {
-                    place(r, c, true); // 1点設置(公開)
-                } else if(dr + dc === 1) {
-                    place(firstSelect.r, firstSelect.c, false);
-                    place(r, c, false); // ドミノ設置(非公開)
+                // 【機能4：キャンセル調整】同じマスを叩いたら解除
+                if(firstSelect.r === r && firstSelect.c === c) {
+                    firstSelect = null;
                 } else {
-                    firstSelect = {r, c};
+                    let dr = Math.abs(r - firstSelect.r), dc = Math.abs(c - firstSelect.c);
+                    if(dr === 0 && dc === 0) commit([{r, c, open: true}]);
+                    else if(dr + dc === 1) commit([{r: firstSelect.r, c: firstSelect.c, open: false}, {r, c, open: false}]);
+                    else firstSelect = {r, c};
                 }
             }
             updateUI();
         }
 
-        function place(r, c, forceOpen) {
-            let cell = board[r][c];
-            if(cell.p !== 0 || forceOpen) cell.open = true;
-            cell.p = currentPlayer;
+        function commit(moves) {
+            moves.forEach(m => {
+                let cell = board[m.r][m.c];
+                if(cell.p !== 0 || m.open) cell.open = true;
+                cell.p = currentPlayer;
+                moveHistory.push({r: m.r, c: m.c, p: currentPlayer});
+            });
 
             if(checkWin(currentPlayer)) {
-                winLine = true; // 簡略化のため
                 endGame(`PLAYER ${currentPlayer} WIN!`);
             } else {
-                nextTurn();
-            }
-        }
-
-        function nextTurn() {
-            firstSelect = null;
-            if(mode === 'offline') {
-                isPassing = true;
-                document.getElementById('pass-player-name').innerText = `PLAYER ${currentPlayer === 1 ? 2 : 1} のターン`;
-                document.getElementById('pass-overlay').style.display = 'flex';
                 currentPlayer = (currentPlayer === 1) ? 2 : 1;
-            } else {
-                currentPlayer = (currentPlayer === 1) ? 2 : 1;
-                syncOnline();
+                firstSelect = null;
+                if(mode === 'offline') {
+                    isPassing = true;
+                    document.getElementById('pass-overlay').style.display = 'flex';
+                    document.getElementById('pass-player-name').innerText = `PLAYER ${currentPlayer} TURN`;
+                } else if(mode === 'ai' && currentPlayer === 2) {
+                    setTimeout(executeAIMove, 600);
+                } else if(mode === 'online') {
+                    syncOnline();
+                }
             }
-        }
-
-        function resumeGame() {
-            isPassing = false;
-            document.getElementById('pass-overlay').style.display = 'none';
             updateUI();
+        }
+
+        function executeAIMove() {
+            // 【機能5：学習型AI】過去データに基づきスコアリング
+            let candidates = [];
+            for(let r=0; r<SIZE; r++) {
+                for(let c=0; c<SIZE; c++) {
+                    if(!board[r][c].open) {
+                        let weight = learnedData.filter(d => d.r === r && d.c === c).length;
+                        candidates.push({r, c, w: weight + Math.random()});
+                    }
+                }
+            }
+            candidates.sort((a,b) => b.w - a.w);
+            let m1 = candidates[0];
+            let m2 = candidates.find(c => Math.abs(c.r-m1.r)+Math.abs(c.r-m1.c) === 1) || candidates[1];
+            commit([{r: m1.r, c: m1.c, open:false}, {r: m2.r, c: m2.c, open:false}]);
         }
 
         function checkWin(p) {
-            const check = (r, c, dr, dc) => {
-                for(let i=0; i<5; i++) {
-                    let nr = r+dr*i, nc = c+dc*i;
-                    if(nr<0||nr>=SIZE||nc<0||nc>=SIZE||board[nr][nc].p!==p||!board[nr][nc].open) return false;
-                }
-                return true;
-            };
+            const dirs = [[1,0],[0,1],[1,1],[1,-1]];
             for(let r=0; r<SIZE; r++) {
                 for(let c=0; c<SIZE; c++) {
-                    if(check(r,c,1,0)||check(r,c,0,1)||check(r,c,1,1)||check(r,c,1,-1)) return true;
+                    if(board[r][c].p === p && board[r][c].open) {
+                        for(let [dr,dc] of dirs) {
+                            let line = [];
+                            for(let i=0; i<5; i++) {
+                                let nr=r+dr*i, nc=c+dc*i;
+                                if(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&board[nr][nc].p===p&&board[nr][nc].open) line.push({r:nr,c:nc});
+                                else break;
+                            }
+                            if(line.length === 5) { winLine = line; return true; }
+                        }
+                    }
                 }
             }
             return false;
@@ -237,19 +242,21 @@
             board.flat().forEach((cell, i) => {
                 let t = tokens[i];
                 t.style.backgroundColor = cell.p === 1 ? 'var(--p1)' : 'var(--p2)';
+                let isMe = (mode === 'offline' && !isPassing && cell.p === currentPlayer) || (mode === 'ai' && cell.p === 1) || (mode === 'online' && cell.p === myId);
                 
-                let isMe = (mode === 'offline' && !isPassing && cell.p === currentPlayer) || (mode === 'online' && cell.p === myId);
-                
-                if(cell.open) t.className = 'token show opened';
+                // 【機能3：全公開リプレイ】勝利時は全駒オープン
+                if(cell.open || winLine) t.className = 'token show opened';
                 else if(isMe && cell.p !== 0) t.className = 'token show stealth';
                 else t.className = 'token';
 
+                if(winLine && winLine.some(l => l.r === Math.floor(i/SIZE) && l.c === i%SIZE)) t.classList.add('win-token');
+                
                 let r = Math.floor(i/SIZE), c = i%SIZE;
                 cells[i].style.background = (firstSelect && firstSelect.r===r && firstSelect.c===c) ? 'rgba(59, 130, 246, 0.2)' : 'var(--panel)';
             });
             document.getElementById('p1-ui').classList.toggle('active', currentPlayer===1);
             document.getElementById('p2-ui').classList.toggle('active', currentPlayer===2);
-            document.getElementById('status-msg').innerText = winLine ? "GAME OVER" : (isPassing ? "PASSING..." : `TURN: P${currentPlayer}`);
+            document.getElementById('status-msg').innerText = winLine ? "GAME OVER" : `TURN: P${currentPlayer}`;
         }
 
         function startTimer() {
@@ -257,1330 +264,52 @@
                 if(winLine || isPassing) return;
                 if(currentPlayer === 1) { if(p1Time > 0) p1Time--; else p1Byo--; if(p1Byo<0) endGame("P2 WIN (TIME)"); }
                 else { if(p2Time > 0) p2Time--; else p2Byo--; if(p2Byo<0) endGame("P1 WIN (TIME)"); }
-                
-                const fmt = (t, b) => `${Math.floor(t/60)}:${(t%60).toString().padStart(2,'0')}${t<=0?` (${b})`:''}`;
-                document.getElementById('p1-t').innerText = fmt(p1Time, p1Byo);
-                document.getElementById('p2-t').innerText = fmt(p2Time, p2Byo);
+                const f = (t, b) => `${Math.floor(t/60)}:${(t%60).toString().padStart(2,'0')}${t<=0?` (${b})`:''}`;
+                document.getElementById('p1-t').innerText = f(p1Time, p1Byo);
+                document.getElementById('p2-t').innerText = f(p2Time, p2Byo);
             }, 1000);
         }
 
         function endGame(m) {
             clearInterval(timerId);
-            document.getElementById('status-msg').innerText = m;
-            if(mode === 'online' && myId === 1) db.ref('game_logs').push({winner: currentPlayer, date: Date.now()});
-            setTimeout(() => { alert(m); location.reload(); }, 500);
+            updateUI();
+            db.ref('game_logs').push({winner: currentPlayer, history: moveHistory, date: Date.now()});
+            setTimeout(() => { alert(m); location.reload(); }, 1200);
         }
 
-        // --- Online Logic ---
-        function showOnlineSetup() { document.getElementById('online-overlay').style.display = 'flex'; }
-        function connectOnline() {
-            const kw = document.getElementById('match-kw').value.trim();
-            if(!kw || !db) return;
-            dbRef = db.ref('rooms/' + kw);
-            dbRef.get().then(snap => {
-                myId = snap.exists() ? 2 : 1;
-                dbRef.on('value', s => {
-                    const data = s.val();
-                    if(!data) return;
-                    board = data.board; currentPlayer = data.turn;
-                    if(data.win) endGame(`PLAYER ${currentPlayer===1?2:1} WIN!`);
-                    updateUI();
-                });
-                startGame('online');
-            });
-        }
-        function syncOnline() { if(dbRef) dbRef.set({ board: board, turn: currentPlayer, win: !!winLine }); }
-
-        // --- Settings & Logs ---
+        // --- Utils ---
+        function resumeFromPass() { isPassing = false; document.getElementById('pass-overlay').style.display = 'none'; updateUI(); }
         function openSettings() { document.getElementById('settings-overlay').style.display = 'flex'; }
         function applySettings() {
             configMin = parseInt(document.getElementById('cfg-min').value) || 10;
             configByo = parseInt(document.getElementById('cfg-byo').value) || 30;
-            resetGame();
-            closeOverlays();
+            initBoard(); closeOverlays();
         }
-        function showLogs() {
-            document.getElementById('log-overlay').style.display = 'flex';
-            if(!db) return;
-            db.ref('game_logs').limitToLast(5).once('value', snap => {
-                let txt = "LATEST RESULTS:\n";
-                snap.forEach(s => { txt += `> Winner: P${s.val().winner}\n`; });
-                document.getElementById('log-box').innerText = txt;
+        function showOnlineSetup() { document.getElementById('online-overlay').style.display = 'flex'; }
+        function connectOnline() {
+            const kw = document.getElementById('match-kw').value.trim();
+            if(!kw) return;
+            dbRef = db.ref('rooms/' + kw);
+            dbRef.get().then(snap => {
+                myId = snap.exists() ? 2 : 1;
+                dbRef.on('value', s => {
+                    const d = s.val(); if(!d) return;
+                    board = d.board; currentPlayer = d.turn;
+                    if(d.win) endGame(`PLAYER ${currentPlayer===1?2:1} WIN!`);
+                    updateUI();
+                });
+                setupGame('online');
             });
         }
+        function syncOnline() { if(dbRef) dbRef.set({ board, turn: currentPlayer, win: !!winLine }); }
         function closeOverlays() { document.querySelectorAll('.overlay').forEach(o => { if(o.id !== 'menu-overlay') o.style.display = 'none'; }); }
         function handleReset() { if(confirm("RESET GAME?")) location.reload(); }
-    </script>
-</body>
-</html>
-        <div class="section">
-            <button class="primary" onclick="startOffline()">OFFLINE 対戦</button>
-            <button class="primary" onclick="showOnlineSetup()">ONLINE 対戦</button>
-        </div>
-        <button onclick="showLogs()" style="width: auto; font-size: 0.8rem;">分析ログを表示</button>
-    </div>
-
-    <div id="pass-overlay" class="overlay" style="background:#000; color:#fff;">
-        <h1 id="pass-msg">PLAYER 2 の番</h1>
-        <p>端末を渡してください</p>
-        <button onclick="hidePassOverlay()" style="background:#fff; color:#000; width:200px; margin-top:40px;">受け取りました</button>
-    </div>
-
-    <div id="online-setup" class="overlay">
-        <h2>ONLINE 接続</h2>
-        <div class="section">
-            <input type="text" id="match-keyword" placeholder="合い言葉" style="width:100%; padding:15px; border-radius:8px; border:1px solid var(--border);">
-            <button class="primary" onclick="initOnlineConnection()" style="margin-top:10px;">接続</button>
-        </div>
-        <button onclick="location.reload()">戻る</button>
-    </div>
-
-    <div id="settings-modal" class="overlay">
-        <h2>OPTIONS</h2>
-        <div class="section">
-            <label style="font-size: 0.7rem;">タイマー設定</label>
-            <div style="display:flex; gap:10px; margin-top:5px;">
-                <input type="number" id="set-min" value="10" title="分" style="width:50%; padding:8px;">
-                <input type="number" id="set-byo" value="30" title="秒" style="width:50%; padding:8px;">
-            </div>
-            <button onclick="applyTimer()" style="margin-top:10px; font-size:0.7rem;">適用してリセット</button>
-        </div>
-        <div class="section">
-            <label style="font-size: 0.7rem;">カラー設定</label>
-            <div style="display:flex; gap:10px; margin-top:5px;">
-                <input type="color" id="p1-c" value="#2563eb" onchange="updateColors()" style="width:50%; height:40px;">
-                <input type="color" id="p2-c" value="#db2777" onchange="updateColors()" style="width:50%; height:40px;">
-            </div>
-        </div>
-        <button onclick="toggleMenu()">閉じる</button>
-    </div>
-
-    <div id="log-overlay" class="overlay">
-        <h2>ANALYTICS</h2>
-        <div class="section"><pre id="log-container" style="text-align:left; font-size:0.7rem; color:#0f0; background:#000; padding:10px; border-radius:5px; max-height:200px; overflow-y:auto;">データを読み込み中...</pre></div>
-        <button onclick="document.getElementById('log-overlay').style.display='none'">閉じる</button>
-    </div>
-
-    <div id="game-end-overlay" class="overlay">
-        <h1 id="end-status-msg">勝利！</h1>
-        <div class="section">
-            <button class="primary" onclick="location.reload()">もう一度遊ぶ</button>
-        </div>
-    </div>
-
-    <div id="top-controls">
-        <div id="btn-reset" class="ctrl-btn" onclick="handleReset()">🔄</div>
-        <div class="ctrl-btn" onclick="toggleMenu()">≡</div>
-    </div>
-
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyAIkCvmJVZE9qzeAPFTIEijsuZ_HGRiUlA",
-            authDomain: "sub5conscious.firebaseapp.com",
-            projectId: "sub5conscious",
-            databaseURL: "https://sub5conscious-default-rtdb.firebaseio.com",
-            storageBucket: "sub5conscious.firebasestorage.app",
-            messagingSenderId: "774659474330",
-            appId: "1:774659474330:web:d1ff3843a96f6e6001b023"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        let dbRef = null;
-
-        let SIZE = 8, currentPlayer = 1, boardData = [], winLine = [], moveHistory = [];
-        let p1Time = 600, p2Time = 600, p1Byo = 30, p2Byo = 30, configMin = 10, configByo = 30;
-        let timerInterval, gameMode = 'offline', myPlayerId = 1, isWaitingPass = false, firstPick = null;
-
-        function startOffline() { gameMode = 'offline'; document.getElementById('mode-selector').style.display = 'none'; init(); }
-        function showOnlineSetup() { document.getElementById('online-setup').style.display = 'flex'; }
-        
-        function initOnlineConnection() {
-            const kw = document.getElementById('match-keyword').value.trim();
-            if(!kw) return;
-            dbRef = db.ref('rooms/' + kw);
-            document.getElementById('btn-reset').innerText = "🏳";
-            dbRef.get().then(snap => {
-                myPlayerId = snap.exists() ? 2 : 1;
-                gameMode = 'online';
-                document.getElementById('online-setup').style.display = 'none';
-                document.getElementById('mode-selector').style.display = 'none';
-                if(myPlayerId===1) init();
-                startOnlineListener();
-            });
-        }
-
-        function init() {
-            clearInterval(timerInterval);
-            const b = document.getElementById('board'); b.innerHTML = ''; 
-            winLine = []; firstPick = null; moveHistory = [];
-            boardData = Array.from({length:SIZE},()=>Array(SIZE).fill(null).map(()=>({owner:0, opened:false})));
-            for(let r=0; r<SIZE; r++) {
-                for(let c=0; c<SIZE; c++) {
-                    let cell = document.createElement('div'); cell.className = 'cell'; cell.id = `c-${r}-${c}`;
-                    cell.onclick = () => handleInput(r, c);
-                    let t = document.createElement('div'); t.className = 'token'; cell.appendChild(t); b.appendChild(cell);
-                }
-            }
-            p1Time = configMin * 60; p2Time = p1Time; p1Byo = configByo; p2Byo = configByo;
-            startTimerLoop();
-            if(gameMode==='online') sync();
-            updateView();
-        }
-
-        function handleInput(r, c) {
-            if(winLine.length > 0 || isWaitingPass || boardData[r][c].opened) return;
-            if(gameMode==='online' && currentPlayer !== myPlayerId) return;
-            
-            if(!firstPick) { 
-                firstPick = {r,c}; 
-            } else {
-                let dr = Math.abs(r-firstPick.r), dc = Math.abs(c-firstPick.c);
-                if(dr===0 && dc===0) commit([{r, c, open: true}]);
-                else if(dr+dc===1) commit([{r: firstPick.r, c: firstPick.c, open: false}, {r: r, c: c, open: false}]);
-                else firstPick = {r,c};
-            }
-            updateView();
-        }
-
-        function commit(moves) {
-            moves.forEach(m => {
-                let cell = boardData[m.r][m.c];
-                if(cell.owner !== 0 || m.open) cell.opened = true;
-                cell.owner = currentPlayer;
-                moveHistory.push({p: currentPlayer, r: m.r, c: m.c, open: cell.opened});
-            });
-
-            if(checkWin(currentPlayer)) { endGame(`PLAYER ${currentPlayer} WIN!`); return; }
-
-            if(gameMode === 'offline') {
-                isWaitingPass = true;
-                document.getElementById('pass-msg').innerText = `次は PLAYER ${currentPlayer===1?2:1} の番`;
-                document.getElementById('pass-overlay').style.display = 'flex';
-                currentPlayer = (currentPlayer === 1) ? 2 : 1;
-            } else {
-                currentPlayer = (currentPlayer === 1) ? 2 : 1;
-                sync();
-            }
-            firstPick = null;
-            updateView();
-        }
-
-        function checkWin(p) {
-            const dirs = [[1,0],[0,1],[1,1],[1,-1]];
-            for(let r=0; r<SIZE; r++) {
-                for(let c=0; c<SIZE; c++) {
-                    if(boardData[r][c].owner===p && boardData[r][c].opened) {
-                        for(let [dr,dc] of dirs) {
-                            let line = [{r,c}];
-                            for(let i=1; i<5; i++) {
-                                let nr=r+dr*i, nc=c+dc*i;
-                                if(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&boardData[nr][nc].owner===p&&boardData[nr][nc].opened) line.push({r:nr,c:nc});
-                                else break;
-                            }
-                            if(line.length===5) { winLine = line; return true; }
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-
-        function endGame(msg) {
-            clearInterval(timerInterval);
-            document.getElementById('win-display').innerText = msg;
-            document.getElementById('end-status-msg').innerText = msg;
-            if(gameMode==='online' && myPlayerId === 1) {
-                db.ref('game_logs').push({winner: currentPlayer, totalMoves: moveHistory.length, date: Date.now()});
-            }
-            updateView();
-            setTimeout(() => { document.getElementById('game-end-overlay').style.display = 'flex'; }, 1000);
-        }
-
-        function startOnlineListener() {
-            dbRef.on('value', snap => {
-                const d = snap.val();
-                if(!d) return;
-                if(d.retiredBy) { endGame(`PLAYER ${d.retiredBy} RETIRED`); return; }
-                boardData = d.board; currentPlayer = d.turn;
-                if(d.winLine) endGame(`PLAYER ${currentPlayer===1?2:1} WIN!`);
-                updateView();
-            });
-        }
-
-        function sync() { if(dbRef) dbRef.set({ board: boardData, turn: currentPlayer, winLine: winLine.length>0 }); }
-
-        function updateView() {
-            const cells = document.querySelectorAll('.cell');
-            boardData.flat().forEach((d, i) => {
-                let r=Math.floor(i/SIZE), c=i%SIZE, t=cells[i].querySelector('.token');
-                if(!t) return;
-                t.style.backgroundColor = d.owner===1 ? 'var(--p1)':'var(--p2)';
-                
-                let isMe = false;
-                if(!isWaitingPass) {
-                    isMe = (gameMode==='offline' && d.owner===currentPlayer) || (gameMode==='online' && d.owner===myPlayerId);
-                }
-
-                if(d.opened) t.className = 'token show opened';
-                else if(isMe && d.owner!==0) t.className = 'token show stealth';
-                else t.className = 'token';
-
-                if(winLine.length > 0) {
-                    if(winLine.some(l=>l.r===r && l.c===c)) t.classList.add('win-token');
-                    else t.classList.add('dimmed');
-                }
-                cells[i].style.background = (firstPick && firstPick.r===r && firstPick.c===c) ? 'rgba(59, 130, 246, 0.1)' : 'var(--panel)';
-            });
-            document.getElementById('p1-ui').classList.toggle('active', currentPlayer===1);
-            document.getElementById('p2-ui').classList.toggle('active', currentPlayer===2);
-        }
-
-        function startTimerLoop() {
-            timerInterval = setInterval(() => {
-                if(winLine.length > 0 || isWaitingPass) return;
-                if(currentPlayer === 1) { if(p1Time > 0) p1Time--; else if(p1Byo > 0) p1Byo--; else endGame("P2 WIN(TIME)"); }
-                else { if(p2Time > 0) p2Time--; else if(p2Byo > 0) p2Byo--; else endGame("P1 WIN(TIME)"); }
-                const f = (s, b) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}${s<=0?' ('+b+')':''}`;
-                document.getElementById('p1-t').innerText = f(p1Time, p1Byo);
-                document.getElementById('p2-t').innerText = f(p2Time, p2Byo);
-            }, 1000);
-        }
-
         function showLogs() {
-            document.getElementById('log-overlay').style.display='flex';
-            db.ref('game_logs').limitToLast(10).once('value', snap => {
-                let h = "ANALYSIS LOG\n-----------\n", p1=0, p2=0, tot=0;
-                snap.forEach(s => { const d = s.val(); tot++; if(d.winner===1) p1++; else p2++; h+=`Win:P${d.winner} Moves:${d.totalMoves}\n`; });
-                if(tot>0) h += `-----------\nP1 Win: ${Math.round(p1/tot*100)}%\nP2 Win: ${Math.round(p2/tot*100)}%`;
-                document.getElementById('log-container').innerText = tot ? h : "No data.";
+            db.ref('game_logs').limitToLast(5).once('value', s => {
+                let str = "RECENT RESULTS:\n";
+                s.forEach(i => { str += `> P${i.val().winner} WON (${new Date(i.val().date).toLocaleDateString()})\n`; });
+                alert(str || "No data yet.");
             });
-        }
-
-        function applyTimer() {
-            configMin = parseInt(document.getElementById('set-min').value) || 10;
-            configByo = parseInt(document.getElementById('set-byo').value) || 30;
-            init(); toggleMenu();
-        }
-
-        function handleReset() {
-            if(gameMode === 'online') { if(confirm("リタイアしますか？")) dbRef.update({ retiredBy: myPlayerId }); }
-            else { if(confirm("最初からやり直しますか？")) init(); }
-        }
-        function hidePassOverlay() { isWaitingPass = false; document.getElementById('pass-overlay').style.display = 'none'; updateView(); }
-        function toggleMenu() { const s=document.getElementById('settings-modal'); s.style.display=(s.style.display==='flex')?'none':'flex'; }
-        function updateColors() {
-            document.documentElement.style.setProperty('--p1', document.getElementById('p1-c').value);
-            document.documentElement.style.setProperty('--p2', document.getElementById('p2-c').value);
-            updateView();
-        }
-    </script>
-</body>
-</html>
-
-.token.show { transform: scale(1); }
-        .token.opened { border: 3px solid #fff; box-shadow: 0 0 15px currentColor; transform: scale(1.05); }
-        .token.stealth { opacity: 0.3; }
-
-        /* --- Overlays --- */
-        .overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 3000; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
-        .section { background: var(--panel); padding: 15px; border-radius: 10px; width: 100%; max-width: 400px; margin-bottom: 12px; border: 1px solid var(--border); box-sizing: border-box; }
-        button { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
-        button.primary { background: var(--accent); color: white; border: none; }
-        #log-container { max-height: 250px; overflow-y: auto; background: #111; color: #0f0; padding: 10px; font-family: monospace; text-align: left; font-size: 0.75rem; border-radius: 5px; }
-
-        #top-controls { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 2000; }
-        .ctrl-btn { width: 50px; height: 50px; background: var(--panel); border: 1px solid var(--border); border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 1.5rem; }
-        
-        @keyframes winBounce { 0%,100%{transform:scale(1.1) translateY(0);} 50%{transform:scale(1.4) translateY(-15px); filter:brightness(1.5); box-shadow: 0 0 30px currentColor;} }
-        .win-token { animation: winBounce 0.6s ease-in-out infinite; z-index: 10; }
-        .dimmed { opacity: 0.1 !important; transition: 1s; }
-    </style>
-</head>
-<body>
-
-    <div id="header">
-        <div id="win-display"></div>
-        <div class="timer-bar">
-            <div id="p1-ui" class="p-box active">P1 <span id="p1-t">--:--</span></div>
-            <div id="p2-ui" class="p-box">P2 <span id="p2-t">--:--</span></div>
-        </div>
-    </div>
-
-    <div id="board-area"><div id="board"></div></div>
-
-    <div id="mode-selector" class="overlay" style="display: flex;">
-        <h1 style="font-size: 2.8rem; margin-bottom: 30px; letter-spacing: -1px;">sub5conscious</h1>
-        <div class="section">
-            <button class="primary" onclick="startOffline()" style="margin-bottom:10px;">OFFLINE 対戦</button>
-            <button class="primary" onclick="showOnlineSetup()">ONLINE 対戦</button>
-        </div>
-        <button onclick="showLogs()" style="margin-top:20px; width: auto; font-size: 0.8rem;">分析ログ</button>
-    </div>
-
-    <div id="pass-overlay" class="overlay" style="background:#000; color:#fff;">
-        <h1 id="pass-msg">PLAYER 2 の番です</h1>
-        <p>端末を渡してください</p>
-        <button onclick="hidePassOverlay()" style="background:#fff; color:#000; width:220px; margin-top:40px; border-radius:50px;">受け取りました</button>
-    </div>
-
-    <div id="online-setup" class="overlay">
-        <h2>合い言葉接続</h2>
-        <div class="section">
-            <input type="text" id="match-keyword" placeholder="キーワード" style="width:100%; padding:15px; box-sizing:border-box; border-radius:8px; border:1px solid var(--border);">
-            <button class="primary" onclick="initOnlineConnection()" style="margin-top:10px;">接続開始</button>
-        </div>
-        <button onclick="location.reload()" style="border:none; opacity:0.5;">キャンセル</button>
-    </div>
-
-    <div id="settings-modal" class="overlay">
-        <h2>OPTIONS</h2>
-        <div class="section">
-            <div style="display:flex; gap:10px;">
-                <div style="flex:1;">分: <input type="number" id="set-min" value="10" style="width:100%; padding:8px;"></div>
-                <div style="flex:1;">秒読み: <input type="number" id="set-byo" value="30" style="width:100%; padding:8px;"></div>
-            </div>
-            <button onclick="applyTimer()" style="margin-top:10px; font-size:0.7rem;">適用してリセット</button>
-        </div>
-        <button onclick="toggleMenu()" style="margin-top:10px;">閉じる</button>
-    </div>
-
-    <div id="log-overlay" class="overlay">
-        <h2>分析ログ</h2>
-        <div class="section"><div id="log-container">ロード中...</div></div>
-        <button onclick="document.getElementById('log-overlay').style.display='none'">閉じる</button>
-    </div>
-
-    <div id="game-end-overlay" class="overlay">
-        <h1 id="end-status-msg" style="color:var(--accent);">勝利！</h1>
-        <div class="section">
-            <button onclick="confirmRestart()" style="background:#22c55e; color:white; border:none; margin-bottom:10px;">再戦</button>
-            <button onclick="location.reload()" style="background:#ef4444; color:white; border:none;">終了</button>
-        </div>
-    </div>
-
-    <div id="top-controls">
-        <div id="btn-reset" class="ctrl-btn" onclick="handleResetClick()">🔄</div>
-        <div class="ctrl-btn" onclick="toggleMenu()">≡</div>
-    </div>
-
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyAIkCvmJVZE9qzeAPFTIEijsuZ_HGRiUlA",
-            authDomain: "sub5conscious.firebaseapp.com",
-            projectId: "sub5conscious",
-            databaseURL: "https://sub5conscious-default-rtdb.firebaseio.com",
-            storageBucket: "sub5conscious.firebasestorage.app",
-            messagingSenderId: "774659474330",
-            appId: "1:774659474330:web:d1ff3843a96f6e6001b023"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        let dbRef = null;
-
-        let SIZE = 8, currentPlayer = 1, boardData = [], winLine = [], moveHistory = [];
-        let p1Time = 600, p2Time = 600, p1Byo = 30, p2Byo = 30, configMin = 10, configByo = 30;
-        let timerInterval, gameMode = 'offline', myPlayerId = 1, isWaitingPass = false, firstPick = null;
-
-        function startOffline() { gameMode = 'offline'; document.getElementById('mode-selector').style.display = 'none'; init(); }
-        function showOnlineSetup() { document.getElementById('online-setup').style.display = 'flex'; }
-        
-        function initOnlineConnection() {
-            const kw = document.getElementById('match-keyword').value.trim();
-            if(!kw) return;
-            dbRef = db.ref('rooms/' + kw);
-            document.getElementById('btn-reset').innerText = "🏳";
-            dbRef.get().then(snap => {
-                myPlayerId = snap.exists() ? 2 : 1;
-                gameMode = 'online';
-                document.getElementById('online-setup').style.display = 'none';
-                document.getElementById('mode-selector').style.display = 'none';
-                if(myPlayerId===1) init();
-                startOnlineListener();
-            });
-        }
-
-        function init() {
-            clearInterval(timerInterval);
-            const b = document.getElementById('board'); b.innerHTML = ''; 
-            winLine = []; firstPick = null; moveHistory = [];
-            boardData = Array.from({length:SIZE},()=>Array(SIZE).fill(null).map(()=>({owner:0, opened:false})));
-            for(let r=0; r<SIZE; r++) {
-                for(let c=0; c<SIZE; c++) {
-                    let cell = document.createElement('div'); cell.className = 'cell'; cell.id = `c-${r}-${c}`;
-                    cell.onclick = () => handleInput(r, c);
-                    let t = document.createElement('div'); t.className = 'token'; cell.appendChild(t); b.appendChild(cell);
-                }
-            }
-            p1Time = configMin * 60; p2Time = p1Time; p1Byo = configByo; p2Byo = configByo;
-            startTimerLoop();
-            if(gameMode==='online') sync();
-            updateView();
-        }
-
-        function handleInput(r, c) {
-            if(winLine.length > 0 || isWaitingPass || boardData[r][c].opened) return;
-            if(gameMode==='online' && currentPlayer !== myPlayerId) return;
-            if(!firstPick) { firstPick = {r,c}; } 
-            else {
-                let dr = Math.abs(r-firstPick.r), dc = Math.abs(c-firstPick.c);
-                if(dr===0 && dc===0) commit([{r, c, open: true}]);
-                else if(dr+dc===1) commit([{r: firstPick.r, c: firstPick.c, open: false}, {r: r, c: c, open: false}]);
-                else firstPick = {r,c};
-            }
-            updateView();
-        }
-
-        function commit(moves) {
-            moves.forEach(m => {
-                let cell = boardData[m.r][m.c];
-                if(cell.owner !== 0 || m.open) cell.opened = true;
-                cell.owner = currentPlayer;
-                moveHistory.push({p: currentPlayer, r: m.r, c: m.c, open: cell.opened});
-            });
-
-            if(checkWin(currentPlayer)) { endGame(`PLAYER ${currentPlayer} WIN!`); return; }
-
-            if(gameMode === 'offline') {
-                isWaitingPass = true;
-                updateView(); // ここで一旦盤面から潜伏駒を消す
-                document.getElementById('pass-msg').innerText = `次は PLAYER ${currentPlayer===1?2:1} の番です`;
-                document.getElementById('pass-overlay').style.display = 'flex';
-                currentPlayer = currentPlayer === 1 ? 2 : 1;
-            } else {
-                currentPlayer = currentPlayer === 1 ? 2 : 1;
-                sync();
-            }
-            firstPick = null;
-            updateView();
-        }
-
-        function checkWin(p) {
-            const checkDir = (r,c,dr,dc) => {
-                let line = [];
-                for(let i=0; i<5; i++) {
-                    let nr=r+dr*i, nc=c+dc*i;
-                    if(nr>=0 && nr<SIZE && nc>=0 && nc<SIZE && boardData[nr][nc].owner===p && boardData[nr][nc].opened) line.push({r:nr,c:nc});
-                    else break;
-                }
-                if(line.length===5) { winLine = line; return true; }
-                return false;
-            };
-            for(let r=0; r<SIZE; r++) {
-                for(let c=0; c<SIZE; c++) {
-                    if(boardData[r][c].owner===p && boardData[r][c].opened) {
-                        if(checkDir(r,c,1,0) || checkDir(r,c,0,1) || checkDir(r,c,1,1) || checkDir(r,c,1,-1)) return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function endGame(msg) {
-            clearInterval(timerInterval);
-            document.getElementById('win-display').innerText = msg;
-            document.getElementById('end-status-msg').innerText = msg;
-            if(gameMode==='online' && myPlayerId === 1) {
-                db.ref('game_logs').push({winner: currentPlayer, history: moveHistory, date: Date.now()});
-            }
-            updateView();
-            setTimeout(() => { document.getElementById('game-end-overlay').style.display = 'flex'; }, 1000);
-        }
-
-        function startOnlineListener() {
-            dbRef.on('value', snap => {
-                const data = snap.val();
-                if(!data) return;
-                if(data.retiredBy) { endGame(`PLAYER ${data.retiredBy} RETIRED`); return; }
-                boardData = data.board; currentPlayer = data.turn;
-                if(data.winLine) endGame(`PLAYER ${currentPlayer===1?2:1} WIN!`);
-                updateView();
-            });
-        }
-
-        function sync() { if(dbRef) dbRef.set({ board: boardData, turn: currentPlayer, winLine: winLine.length>0 }); }
-
-        function updateView() {
-            const cells = document.querySelectorAll('.cell');
-            boardData.flat().forEach((d, i) => {
-                let r=Math.floor(i/SIZE), c=i%SIZE, t=cells[i].querySelector('.token');
-                if(!t) return;
-                t.style.backgroundColor = d.owner===1 ? 'var(--p1)':'var(--p2)';
-                
-                // 【重要修正】オフライン交代待機中はすべての潜伏駒を隠す
-                let isMe = false;
-                if(!isWaitingPass) {
-                    isMe = (gameMode==='offline' && d.owner===currentPlayer) || (gameMode==='online' && d.owner===myPlayerId);
-                }
-
-                if(d.opened) t.className = 'token show opened';
-                else if(isMe && d.owner!==0) t.className = 'token show stealth';
-                else t.className = 'token';
-
-                if(winLine.length > 0) {
-                    if(winLine.some(l=>l.r===r && l.c===c)) t.classList.add('win-token');
-                    else t.classList.add('dimmed');
-                }
-                cells[i].style.background = (firstPick && firstPick.r===r && firstPick.c===c) ? 'rgba(59, 130, 246, 0.2)' : 'var(--panel)';
-            });
-            document.getElementById('p1-ui').classList.toggle('active', currentPlayer===1);
-            document.getElementById('p2-ui').classList.toggle('active', currentPlayer===2);
-        }
-
-        function startTimerLoop() {
-            timerInterval = setInterval(() => {
-                if(winLine.length > 0 || isWaitingPass) return;
-                if(currentPlayer === 1) { if(p1Time > 0) p1Time--; else if(p1Byo > 0) p1Byo--; else endGame("P2 WIN (TIME)"); }
-                else { if(p2Time > 0) p2Time--; else if(p2Byo > 0) p2Byo--; else endGame("P1 WIN (TIME)"); }
-                const f = (s, b) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}${s<=0?' ('+b+')':''}`;
-                document.getElementById('p1-t').innerText = f(p1Time, p1Byo);
-                document.getElementById('p2-t').innerText = f(p2Time, p2Byo);
-            }, 1000);
-        }
-
-        function showLogs() {
-            document.getElementById('log-overlay').style.display='flex';
-            const cont = document.getElementById('log-container');
-            db.ref('game_logs').limitToLast(10).once('value', snap => {
-                let h = "【sub5conscious 統計】\n", p1=0, p2=0, tot=0;
-                snap.forEach(s => { const d = s.val(); tot++; if(d.winner===1) p1++; else p2++; h += `> Win:P${d.winner} 手数:${d.history.length}\n`; });
-                if(tot===0) { cont.innerText = "データなし"; return; }
-                h += `\n先手勝率: ${Math.round(p1/tot*100)}%\n後手勝率: ${Math.round(p2/tot*100)}%`;
-                cont.innerText = h;
-            });
-        }
-
-        function applyTimer() {
-            configMin = parseInt(document.getElementById('set-min').value);
-            configByo = parseInt(document.getElementById('set-byo').value);
-            init(); toggleMenu();
-        }
-
-        function handleResetClick() {
-            if(gameMode === 'online') { if(confirm("リタイアしますか？")) dbRef.update({ retiredBy: myPlayerId }); }
-            else { if(confirm("リセットしますか？")) init(); }
-        }
-        function hidePassOverlay() { isWaitingPass = false; document.getElementById('pass-overlay').style.display = 'none'; updateView(); }
-        function toggleMenu() { const s=document.getElementById('settings-modal'); s.style.display=(s.style.display==='flex')?'none':'flex'; }
-        function confirmRestart() { if(gameMode==='online') dbRef.set(null); location.reload(); }
-    </script>
-</body>
-</html>
-
-
-.token { width: 80%; height: 80%; border-radius: 50%; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: scale(0); pointer-events: none; }
-        .token.show { transform: scale(1); }
-        .token.opened { border: 3px solid #fff; box-shadow: 0 0 15px currentColor; transform: scale(1.05); }
-        .token.stealth { opacity: 0.3; }
-
-        /* --- Overlays --- */
-        .overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 3000; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
-        .section { background: var(--panel); padding: 15px; border-radius: 10px; width: 100%; max-width: 400px; margin-bottom: 12px; border: 1px solid var(--border); box-sizing: border-box; }
-        button { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
-        button.primary { background: var(--accent); color: white; border: none; }
-        #log-container { max-height: 250px; overflow-y: auto; background: #111; color: #0f0; padding: 10px; font-family: monospace; text-align: left; font-size: 0.75rem; border-radius: 5px; }
-
-        /* --- Controls --- */
-        #top-controls { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 2000; }
-        .ctrl-btn { width: 50px; height: 50px; background: var(--panel); border: 1px solid var(--border); border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 1.5rem; }
-        
-        @keyframes winBounce { 0%,100%{transform:scale(1.1) translateY(0);} 50%{transform:scale(1.4) translateY(-15px); filter:brightness(1.5); box-shadow: 0 0 30px currentColor;} }
-        .win-token { animation: winBounce 0.6s ease-in-out infinite; z-index: 10; }
-        .dimmed { opacity: 0.1 !important; transition: 1s; }
-    </style>
-</head>
-<body>
-
-    <div id="header">
-        <div id="win-display"></div>
-        <div class="timer-bar">
-            <div id="p1-ui" class="p-box active">P1 <span id="p1-t">10:00</span></div>
-            <div id="p2-ui" class="p-box">P2 <span id="p2-t">10:00</span></div>
-        </div>
-    </div>
-
-    <div id="board-area"><div id="board"></div></div>
-
-    <div id="mode-selector" class="overlay" style="display: flex;">
-        <h1 style="font-size: 2.8rem; margin-bottom: 30px; letter-spacing: -1px;">sub5conscious</h1>
-        <div class="section">
-            <button class="primary" onclick="startOffline()" style="margin-bottom:10px;">OFFLINE 対戦</button>
-            <button class="primary" onclick="showOnlineSetup()">ONLINE 対戦</button>
-        </div>
-        <button onclick="showLogs()" style="margin-top:20px; width: auto; font-size: 0.8rem;">対戦履歴・分析ログ</button>
-    </div>
-
-    <div id="pass-overlay" class="overlay" style="background:#000; color:#fff;">
-        <h2 id="pass-msg">PLAYER 2 の番です</h2>
-        <h1>端末を渡してください</h1>
-        <button onclick="hidePassOverlay()" style="background:#fff; color:#000; width:200px; margin-top:30px;">受け取りました</button>
-    </div>
-
-    <div id="online-setup" class="overlay">
-        <h2>合い言葉接続</h2>
-        <div class="section">
-            <input type="text" id="match-keyword" placeholder="合い言葉を入力" style="width:100%; padding:15px; box-sizing:border-box; border-radius:8px; border:1px solid var(--border);">
-            <button class="primary" onclick="initOnlineConnection()">接続開始</button>
-        </div>
-        <button onclick="location.reload()" style="border:none; opacity:0.5;">キャンセル</button>
-    </div>
-
-    <div id="settings-modal" class="overlay">
-        <h2>OPTIONS</h2>
-        <div class="section">
-            <label style="display:block; text-align:left; font-size:0.7rem; font-weight:bold; color:var(--accent);">タイマー詳細設定</label>
-            <div style="display:flex; gap:10px; margin-top:5px;">
-                <div style="flex:1;">分: <input type="number" id="set-min" value="10" style="width:100%; padding:8px;"></div>
-                <div style="flex:1;">秒読み: <input type="number" id="set-byo" value="30" style="width:100%; padding:8px;"></div>
-            </div>
-            <button onclick="applyTimer()" style="margin-top:10px; font-size:0.7rem;">適用してリセット</button>
-        </div>
-        <button onclick="toggleMenu()" style="margin-top:10px;">閉じる</button>
-    </div>
-
-    <div id="log-overlay" class="overlay">
-        <h2>分析ログ</h2>
-        <div class="section"><div id="log-container">ロード中...</div></div>
-        <button onclick="document.getElementById('log-overlay').style.display='none'">閉じる</button>
-    </div>
-
-    <div id="game-end-overlay" class="overlay">
-        <h1 id="end-status-msg" style="color:var(--accent);">勝利！</h1>
-        <div class="section">
-            <button onclick="confirmRestart()" style="background:#22c55e; color:white; border:none; margin-bottom:10px;">再戦 (REMATCH)</button>
-            <button onclick="location.reload()" style="background:#ef4444; color:white; border:none;">終了 (EXIT)</button>
-        </div>
-    </div>
-
-    <div id="top-controls">
-        <div id="btn-reset" class="ctrl-btn" onclick="handleResetClick()">🔄</div>
-        <div class="ctrl-btn" onclick="toggleMenu()">≡</div>
-    </div>
-
-    <script>
-        // Firebase Config
-        const firebaseConfig = {
-            apiKey: "AIzaSyAIkCvmJVZE9qzeAPFTIEijsuZ_HGRiUlA",
-            authDomain: "sub5conscious.firebaseapp.com",
-            projectId: "sub5conscious",
-            databaseURL: "https://sub5conscious-default-rtdb.firebaseio.com",
-            storageBucket: "sub5conscious.firebasestorage.app",
-            messagingSenderId: "774659474330",
-            appId: "1:774659474330:web:d1ff3843a96f6e6001b023"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        let dbRef = null;
-
-        let SIZE = 8, currentPlayer = 1, boardData = [], winLine = [], moveHistory = [];
-        let p1Time = 600, p2Time = 600, p1Byo = 30, p2Byo = 30, configMin = 10, configByo = 30;
-        let timerInterval, gameMode = 'offline', myPlayerId = 1, isWaitingPass = false, firstPick = null;
-
-        function startOffline() { gameMode = 'offline'; document.getElementById('mode-selector').style.display = 'none'; init(); }
-        function showOnlineSetup() { document.getElementById('online-setup').style.display = 'flex'; }
-        
-        function initOnlineConnection() {
-            const kw = document.getElementById('match-keyword').value.trim();
-            if(!kw) return;
-            dbRef = db.ref('rooms/' + kw);
-            document.getElementById('btn-reset').innerText = "🏳";
-            dbRef.get().then(snap => {
-                myPlayerId = snap.exists() ? 2 : 1;
-                gameMode = 'online';
-                document.getElementById('online-setup').style.display = 'none';
-                document.getElementById('mode-selector').style.display = 'none';
-                if(myPlayerId===1) init();
-                startOnlineListener();
-            });
-        }
-
-        function init() {
-            clearInterval(timerInterval);
-            const b = document.getElementById('board'); b.innerHTML = ''; 
-            winLine = []; firstPick = null; moveHistory = [];
-            boardData = Array.from({length:SIZE},()=>Array(SIZE).fill(null).map(()=>({owner:0, opened:false})));
-            for(let r=0; r<SIZE; r++) {
-                for(let c=0; c<SIZE; c++) {
-                    let cell = document.createElement('div'); cell.className = 'cell'; cell.id = `c-${r}-${c}`;
-                    cell.onclick = () => handleInput(r, c);
-                    let t = document.createElement('div'); t.className = 'token'; cell.appendChild(t); b.appendChild(cell);
-                }
-            }
-            p1Time = configMin * 60; p2Time = p1Time; p1Byo = configByo; p2Byo = configByo;
-            startTimerLoop();
-            if(gameMode==='online') sync();
-            updateView();
-        }
-
-        function handleInput(r, c) {
-            if(winLine.length > 0 || isWaitingPass || boardData[r][c].opened) return;
-            if(gameMode==='online' && currentPlayer !== myPlayerId) return;
-            if(!firstPick) { firstPick = {r,c}; } 
-            else {
-                let dr = Math.abs(r-firstPick.r), dc = Math.abs(c-firstPick.c);
-                if(dr===0 && dc===0) commit([{r, c, open: true}]);
-                else if(dr+dc===1) commit([{r: firstPick.r, c: firstPick.c, open: false}, {r: r, c: c, open: false}]);
-                else firstPick = {r,c};
-            }
-            updateView();
-        }
-
-        function commit(moves) {
-            moves.forEach(m => {
-                let cell = boardData[m.r][m.c];
-                if(cell.owner !== 0 || m.open) cell.opened = true;
-                cell.owner = currentPlayer;
-                moveHistory.push({p: currentPlayer, r: m.r, c: m.c, open: cell.opened});
-            });
-
-            if(checkWin(currentPlayer)) { endGame(`PLAYER ${currentPlayer} の勝利！`); return; }
-
-            if(gameMode === 'offline') {
-                isWaitingPass = true;
-                document.getElementById('pass-msg').innerText = `次は PLAYER ${currentPlayer===1?2:1} の番です`;
-                document.getElementById('pass-overlay').style.display = 'flex';
-                currentPlayer = currentPlayer === 1 ? 2 : 1;
-            } else {
-                currentPlayer = currentPlayer === 1 ? 2 : 1;
-                sync();
-            }
-            firstPick = null;
-            updateView();
-        }
-
-        function checkWin(p) {
-            const checkDir = (r,c,dr,dc) => {
-                let line = [];
-                for(let i=0; i<5; i++) {
-                    let nr=r+dr*i, nc=c+dc*i;
-                    if(nr>=0 && nr<SIZE && nc>=0 && nc<SIZE && boardData[nr][nc].owner===p && boardData[nr][nc].opened) line.push({r:nr,c:nc});
-                    else break;
-                }
-                if(line.length===5) { winLine = line; return true; }
-                return false;
-            };
-            for(let r=0; r<SIZE; r++) {
-                for(let c=0; c<SIZE; c++) {
-                    if(boardData[r][c].owner===p && boardData[r][c].opened) {
-                        if(checkDir(r,c,1,0) || checkDir(r,c,0,1) || checkDir(r,c,1,1) || checkDir(r,c,1,-1)) return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function endGame(msg) {
-            clearInterval(timerInterval);
-            document.getElementById('win-display').innerText = msg;
-            document.getElementById('end-status-msg').innerText = msg;
-            if(gameMode==='online' && myPlayerId === 1) {
-                db.ref('game_logs').push({winner: currentPlayer, history: moveHistory, date: Date.now()});
-            }
-            updateView();
-            setTimeout(() => { document.getElementById('game-end-overlay').style.display = 'flex'; }, 1000);
-        }
-
-        function startOnlineListener() {
-            dbRef.on('value', snap => {
-                const data = snap.val();
-                if(!data) return;
-                if(data.retiredBy) { endGame(`PLAYER ${data.retiredBy} がリタイアしました`); return; }
-                boardData = data.board; currentPlayer = data.turn;
-                if(data.winLine) endGame(`PLAYER ${currentPlayer===1?2:1} の勝利！`);
-                updateView();
-            });
-        }
-
-        function sync() { if(dbRef) dbRef.set({ board: boardData, turn: currentPlayer, winLine: winLine.length>0 }); }
-
-        function updateView() {
-            const cells = document.querySelectorAll('.cell');
-            boardData.flat().forEach((d, i) => {
-                let r=Math.floor(i/SIZE), c=i%SIZE, t=cells[i].querySelector('.token');
-                if(!t) return;
-                t.style.backgroundColor = d.owner===1 ? 'var(--p1)':'var(--p2)';
-                let isMe = (gameMode==='offline' && d.owner===(isWaitingPass ? (currentPlayer===1?2:1) : currentPlayer)) || (gameMode==='online' && d.owner===myPlayerId);
-                if(d.opened) t.className = 'token show opened';
-                else if(isMe && d.owner!==0) t.className = 'token show stealth';
-                else t.className = 'token';
-                if(winLine.length > 0) {
-                    if(winLine.some(l=>l.r===r && l.c===c)) t.classList.add('win-token');
-                    else t.classList.add('dimmed');
-                }
-                cells[i].style.background = (firstPick && firstPick.r===r && firstPick.c===c) ? 'rgba(59, 130, 246, 0.2)' : 'var(--panel)';
-            });
-            document.getElementById('p1-ui').classList.toggle('active', currentPlayer===1);
-            document.getElementById('p2-ui').classList.toggle('active', currentPlayer===2);
-        }
-
-        function startTimerLoop() {
-            timerInterval = setInterval(() => {
-                if(winLine.length > 0 || isWaitingPass) return;
-                if(currentPlayer === 1) { if(p1Time > 0) p1Time--; else if(p1Byo > 0) p1Byo--; else endGame("P2 WIN BY TIME"); }
-                else { if(p2Time > 0) p2Time--; else if(p2Byo > 0) p2Byo--; else endGame("P1 WIN BY TIME"); }
-                const f = (s, b) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}${s<=0?' ('+b+')':''}`;
-                document.getElementById('p1-t').innerText = f(p1Time, p1Byo);
-                document.getElementById('p2-t').innerText = f(p2Time, p2Byo);
-            }, 1000);
-        }
-
-        function showLogs() {
-            document.getElementById('log-overlay').style.display='flex';
-            const cont = document.getElementById('log-container');
-            db.ref('game_logs').limitToLast(10).once('value', snap => {
-                let h = "【sub5conscious 分析】\n", p1=0, p2=0, tot=0;
-                snap.forEach(s => {
-                    const d = s.val(); tot++; if(d.winner===1) p1++; else p2++;
-                    h += `> Win:P${d.winner} 手数:${d.history.length}\n`;
-                });
-                if(tot===0) { cont.innerText = "データなし"; return; }
-                h += `\n先手勝率: ${Math.round(p1/tot*100)}%\n後手勝率: ${Math.round(p2/tot*100)}%`;
-                cont.innerText = h;
-            });
-        }
-
-        function applyTimer() {
-            configMin = parseInt(document.getElementById('set-min').value);
-            configByo = parseInt(document.getElementById('set-byo').value);
-            init(); toggleMenu();
-        }
-
-        function handleResetClick() {
-            if(gameMode === 'online') { if(confirm("リタイアしますか？")) dbRef.update({ retiredBy: myPlayerId }); }
-            else { if(confirm("リセットしますか？")) init(); }
-        }
-        function hidePassOverlay() { isWaitingPass = false; document.getElementById('pass-overlay').style.display = 'none'; updateView(); }
-        function toggleMenu() { const s=document.getElementById('settings-modal'); s.style.display=(s.style.display==='flex')?'none':'flex'; }
-        function confirmRestart() { if(gameMode==='online') dbRef.set(null); location.reload(); }
-    </script>
-</body>
-</html>
-
-Pick = null; lastMoves = []; moveHistory = [];
-            boardData = Array.from({length:SIZE},()=>Array(SIZE).fill(null).map(()=>({owner:0, opened:false})));
-            for(let r=0; r<SIZE; r++) {
-                for(let c=0; c<SIZE; c++) {
-                    let cell = document.createElement('div'); cell.className = 'cell'; cell.id = `c-${r}-${c}`;
-                    cell.onclick = () => handleInput(r, c);
-                    let t = document.createElement('div'); t.className = 'token'; cell.appendChild(t); b.appendChild(cell);
-                }
-            }
-            p1Time = configMin * 60; p2Time = p1Time; p1Byo = configByo; p2Byo = configByo;
-            startTimerLoop();
-            if(gameMode==='online') sync();
-            updateView();
-        }
-
-        function handleInput(r, c) {
-            if(winLine.length > 0 || isWaitingPass || boardData[r][c].opened) return;
-            if(gameMode==='online' && currentPlayer !== myPlayerId) return;
-            
-            if(!firstPick) { firstPick = {r,c}; } 
-            else {
-                let dr = Math.abs(r-firstPick.r), dc = Math.abs(c-firstPick.c);
-                if(dr===0 && dc===0) commit([{r, c, open: true}]);
-                else if(dr+dc===1) commit([{r: firstPick.r, c: firstPick.c, open: false}, {r: r, c: c, open: false}]);
-                else firstPick = {r,c};
-            }
-            updateView();
-        }
-
-        function commit(moves) {
-            lastMoves = moves;
-            moves.forEach(m => {
-                let cell = boardData[m.r][m.c];
-                if(cell.owner !== 0 || m.open) cell.opened = true;
-                cell.owner = currentPlayer;
-                moveHistory.push({p: currentPlayer, r: m.r, c: m.c, open: cell.opened});
-            });
-
-            if(checkWin(currentPlayer)) { endGame(`PLAYER ${currentPlayer} の勝利！`); return; }
-
-            if(gameMode === 'offline') {
-                isWaitingPass = true;
-                document.getElementById('pass-msg').innerText = `次は PLAYER ${currentPlayer===1?2:1} の番です`;
-                document.getElementById('pass-overlay').style.display = 'flex';
-                currentPlayer = currentPlayer === 1 ? 2 : 1;
-            } else {
-                currentPlayer = currentPlayer === 1 ? 2 : 1;
-                sync();
-            }
-            firstPick = null;
-            updateView();
-        }
-
-        function checkWin(p) {
-            const checkDir = (r,c,dr,dc) => {
-                let line = [];
-                for(let i=0; i<5; i++) {
-                    let nr=r+dr*i, nc=c+dc*i;
-                    if(nr>=0 && nr<SIZE && nc>=0 && nc<SIZE && boardData[nr][nc].owner===p && boardData[nr][nc].opened) line.push({r:nr,c:nc});
-                    else break;
-                }
-                if(line.length===5) { winLine = line; return true; }
-                return false;
-            };
-            for(let r=0; r<SIZE; r++) {
-                for(let c=0; c<SIZE; c++) {
-                    if(boardData[r][c].owner===p && boardData[r][c].opened) {
-                        if(checkDir(r,c,1,0) || checkDir(r,c,0,1) || checkDir(r,c,1,1) || checkDir(r,c,1,-1)) return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function endGame(msg) {
-            clearInterval(timerInterval);
-            document.getElementById('win-display').innerText = msg;
-            document.getElementById('end-status-msg').innerText = msg;
-            if(gameMode==='online' && myPlayerId === 1) {
-                db.ref('game_logs').push({winner: currentPlayer, history: moveHistory, date: Date.now()});
-            }
-            updateView();
-            setTimeout(() => { document.getElementById('game-end-overlay').style.display = 'flex'; }, 1000);
-        }
-
-        function startOnlineListener() {
-            dbRef.on('value', snap => {
-                const data = snap.val();
-                if(!data) return;
-                if(data.retiredBy) { endGame(`PLAYER ${data.retiredBy} がリタイアしました`); return; }
-                boardData = data.board; currentPlayer = data.turn;
-                if(data.winLine) endGame(`PLAYER ${currentPlayer===1?2:1} の勝利！`);
-                updateView();
-            });
-        }
-
-        function sync() { if(dbRef) dbRef.set({ board: boardData, turn: currentPlayer, winLine: winLine.length>0 }); }
-
-        function updateView() {
-            const cells = document.querySelectorAll('.cell');
-            boardData.flat().forEach((d, i) => {
-                let r=Math.floor(i/SIZE), c=i%SIZE, t=cells[i].querySelector('.token');
-                if(!t) return;
-                t.style.backgroundColor = d.owner===1 ? 'var(--p1)':'var(--p2)';
-                let isMe = (gameMode==='offline' && d.owner===(isWaitingPass ? (currentPlayer===1?2:1) : currentPlayer)) || (gameMode==='online' && d.owner===myPlayerId);
-                if(d.opened) t.className = 'token show opened';
-                else if(isMe && d.owner!==0) t.className = 'token show stealth';
-                else t.className = 'token';
-                if(winLine.length > 0) {
-                    if(winLine.some(l=>l.r===r && l.c===c)) t.classList.add('win-token');
-                    else t.classList.add('dimmed');
-                }
-                cells[i].classList.remove('last-move');
-                if(lastMoves.some(m=>m.r===r && m.c===c)) cells[i].classList.add('last-move');
-                cells[i].style.background = (firstPick && firstPick.r===r && firstPick.c===c) ? 'rgba(59, 130, 246, 0.2)' : 'var(--panel)';
-            });
-            document.getElementById('p1-ui').classList.toggle('active', currentPlayer===1);
-            document.getElementById('p2-ui').classList.toggle('active', currentPlayer===2);
-        }
-
-        function startTimerLoop() {
-            timerInterval = setInterval(() => {
-                if(winLine.length > 0 || isWaitingPass) return;
-                if(currentPlayer === 1) { if(p1Time > 0) p1Time--; else if(p1Byo > 0) p1Byo--; else endGame("P2 WIN BY TIME"); }
-                else { if(p2Time > 0) p2Time--; else if(p2Byo > 0) p2Byo--; else endGame("P1 WIN BY TIME"); }
-                const f = (s, b) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}${s<=0?' ('+b+')':''}`;
-                document.getElementById('p1-t').innerText = f(p1Time, p1Byo);
-                document.getElementById('p2-t').innerText = f(p2Time, p2Byo);
-            }, 1000);
-        }
-
-        function showLogs() {
-            document.getElementById('log-overlay').style.display='flex';
-            const cont = document.getElementById('log-container');
-            db.ref('game_logs').limitToLast(10).once('value', snap => {
-                let h = "【分析結果】\n", p1=0, p2=0, tot=0;
-                snap.forEach(s => {
-                    const d = s.val(); tot++; if(d.winner===1) p1++; else p2++;
-                    h += `> Win:P${d.winner} 手数:${d.history.length}\n`;
-                });
-                if(tot===0) { cont.innerText = "まだデータがありません"; return; }
-                h += `\n先手勝率: ${Math.round(p1/tot*100)}%\n後手勝率: ${Math.round(p2/tot*100)}%`;
-                cont.innerText = h;
-            });
-        }
-
-        function applyTimer() {
-            configMin = parseInt(document.getElementById('set-min').value);
-            configByo = parseInt(document.getElementById('set-byo').value);
-            init(); toggleMenu();
-        }
-
-        function handleResetClick() {
-            if(gameMode === 'online') { if(confirm("リタイアしますか？")) dbRef.update({ retiredBy: myPlayerId }); }
-            else { if(confirm("リセットしますか？")) init(); }
-        }
-        function hidePassOverlay() { isWaitingPass = false; lastMoves = []; document.getElementById('pass-overlay').style.display = 'none'; updateView(); }
-        function toggleMenu() { const s=document.getElementById('settings-modal'); s.style.display=(s.style.display==='flex')?'none':'flex'; }
-        function updateColors() { document.documentElement.style.setProperty('--p1', document.getElementById('p1-c').value); document.documentElement.style.setProperty('--p2', document.getElementById('p2-c').value); updateView(); }
-        function confirmRestart() { if(gameMode==='online') dbRef.set(null); location.reload(); }
-    </script>
-</body>
-</html>
-
-</div>
-
-    <div id="online-setup" class="overlay">
-        <h2>合い言葉対戦</h2>
-        <div class="section">
-            <input type="text" id="match-keyword" placeholder="合い言葉を入力" style="width:100%; padding:15px; margin-bottom:15px; box-sizing:border-box; border-radius:8px; border:1px solid var(--border);">
-            <button onclick="initOnlineConnection()" style="width:100%; background:var(--accent); color:white; border:none;">対戦開始</button>
-        </div>
-        <button onclick="location.reload()" style="background:none; border:none; opacity:0.5;">戻る</button>
-    </div>
-
-    <div id="pass-overlay" class="overlay">
-        <h2 id="pass-msg">PLAYER 2 の番です</h2>
-        <h1 style="font-size:2rem; margin: 20px 0;">端末を渡してください</h1>
-        <p style="opacity:0.7; margin-bottom:30px;">（青枠があなたの置いた駒です）</p>
-        <button onclick="hidePassOverlay()" style="padding:15px 50px; background:white; color:black; font-weight:bold; border-radius:50px; border:none;">受け取りました</button>
-    </div>
-
-    <div id="game-end-overlay" class="overlay">
-        <h1 id="end-status-msg" style="color:var(--accent);">勝利！</h1>
-        <div class="section">
-            <button onclick="confirmRestart()" style="width:100%; background:#22c55e; color:white; border:none; margin-bottom:10px;">再戦 (REMATCH)</button>
-            <button onclick="location.reload()" style="width:100%; background:#ef4444; color:white; border:none;">終了 (EXIT)</button>
-        </div>
-    </div>
-
-    <div id="top-controls">
-        <div class="ctrl-btn" onclick="location.reload()" title="Home"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
-        <div id="btn-reset" class="ctrl-btn" onclick="handleResetClick()">
-            <svg id="svg-reset" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-            <svg id="svg-retire" viewBox="0 0 24 24" style="display:none;"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/></svg>
-        </div>
-        <div class="ctrl-btn" onclick="toggleMenu()" title="Settings"><span>≡</span></div>
-    </div>
-
-    <div id="header">
-        <div id="win-display"></div>
-        <div class="player-row">
-            <div id="p1-ui" class="p-box active" style="color:var(--p1)">
-                <div>P1</div>
-                <div class="tm-group"><span id="p1-byo" style="font-size:0.7rem; color:red; height:1.2em; display:block;"></span><div id="p1-t" style="font-size:1.4rem; font-weight:bold;">10:00</div></div>
-            </div>
-            <div id="p2-ui" class="p-box" style="color:var(--p2)">
-                <div>P2</div>
-                <div class="tm-group"><span id="p2-byo" style="font-size:0.7rem; color:red; height:1.2em; display:block;"></span><div id="p2-t" style="font-size:1.4rem; font-weight:bold;">10:00</div></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="board-area"><div id="board"></div></div>
-
-    <div id="settings-modal" class="overlay" style="justify-content: flex-start; padding-top: 80px;">
-        <h2>OPTIONS</h2>
-        <div class="section"><label>Timer</label><div class="grid-2"><button id="tm-on" class="active" onclick="toggleTimer(true)">ON</button><button id="tm-off" onclick="toggleTimer(false)">OFF</button></div></div>
-        <div class="section"><label>Player Colors</label><div class="grid-2">
-            <input type="color" id="p1-c" value="#2563eb" onchange="updateColors()">
-            <input type="color" id="p2-c" value="#db2777" onchange="updateColors()">
-        </div></div>
-        <div class="section"><label>Display Mode</label><div class="grid-2"><button id="m-light" class="active" onclick="setMode('light')">LIGHT</button><button id="m-dark" onclick="setMode('dark')">DARK</button></div></div>
-        <button onclick="toggleMenu()" style="border:none; margin-top:20px; opacity:0.6; background:none;">CLOSE</button>
-    </div>
-
-    <script>
-        // Firebase Config反映済み
-        const firebaseConfig = {
-            apiKey: "AIzaSyAIkCvmJVZE9qzeAPFTIEijsuZ_HGRiUlA",
-            authDomain: "sub5conscious.firebaseapp.com",
-            projectId: "sub5conscious",
-            databaseURL: "https://sub5conscious-default-rtdb.firebaseio.com",
-            storageBucket: "sub5conscious.firebasestorage.app",
-            messagingSenderId: "774659474330",
-            appId: "1:774659474330:web:d1ff3843a96f6e6001b023"
-        };
-
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        let dbRef = null;
-
-        let SIZE = 8, currentPlayer = 1, boardData = [], winLine = [], lastMoves = [];
-        let timerInterval, p1Time, p2Time, p1Byo, p2Byo, configMin = 10, configByo = 30;
-        let timerEnabled = true, gameMode = 'offline', myPlayerId = 1, isWaitingPass = false, firstPick = null;
-
-        function startOffline() { gameMode = 'offline'; document.getElementById('mode-selector').style.display = 'none'; init(); }
-        function showOnlineSetup() { document.getElementById('online-setup').style.display = 'flex'; }
-        
-        function initOnlineConnection() {
-            const kw = document.getElementById('match-keyword').value.trim();
-            if(!kw) return;
-            dbRef = db.ref('rooms/' + kw);
-            dbRef.get().then(snap => {
-                myPlayerId = snap.exists() ? 2 : 1;
-                gameMode = 'online';
-                document.getElementById('online-setup').style.display = 'none';
-                document.getElementById('mode-selector').style.display = 'none';
-                document.getElementById('svg-reset').style.display = 'none';
-                document.getElementById('svg-retire').style.display = 'block';
-                if(myPlayerId===1) init();
-                startOnlineListener();
-            });
-        }
-
-        function init() {
-            clearInterval(timerInterval);
-            const b = document.getElementById('board'); b.innerHTML = ''; 
-            winLine = []; firstPick = null; lastMoves = [];
-            document.getElementById('win-display').innerText = '';
-            boardData = Array.from({length:SIZE},()=>Array(SIZE).fill(null).map(()=>({owner:0, opened:false})));
-            for(let r=0; r<SIZE; r++) {
-                for(let c=0; c<SIZE; c++) {
-                    let cell = document.createElement('div'); cell.className = 'cell'; cell.id = `c-${r}-${c}`;
-                    cell.onclick = () => handleInput(r, c);
-                    let t = document.createElement('div'); t.className = 'token'; cell.appendChild(t); b.appendChild(cell);
-                }
-            }
-            p1Time = configMin * 60; p2Time = configMin * 60; p1Byo = configByo; p2Byo = configByo;
-            if(timerEnabled) startTimerLoop();
-            if(gameMode==='online') sync();
-            updateView();
-        }
-
-        function handleInput(r, c) {
-            if(winLine.length > 0 || isWaitingPass || boardData[r][c].opened) return;
-            if(gameMode==='online' && currentPlayer !== myPlayerId) return;
-            
-            if(!firstPick) {
-                firstPick = {r,c};
-            } else {
-                let dr = Math.abs(r-firstPick.r), dc = Math.abs(c-firstPick.c);
-                if(dr===0 && dc===0) commit([{r, c, open: true}]);
-                else if(dr+dc===1) commit([{r: firstPick.r, c: firstPick.c, open: false}, {r: r, c: c, open: false}]);
-                else firstPick = {r,c};
-            }
-            updateView();
-        }
-
-        function commit(moves) {
-            lastMoves = moves;
-            moves.forEach(m => {
-                let cell = boardData[m.r][m.c];
-                if(cell.owner !== 0 || m.open) cell.opened = true;
-                cell.owner = currentPlayer;
-            });
-
-            if(checkWin(currentPlayer)) {
-                endGame(`PLAYER ${currentPlayer} の勝利！`);
-                return;
-            }
-
-            if(gameMode === 'offline') {
-                isWaitingPass = true;
-                document.getElementById('pass-msg').innerText = `次は PLAYER ${currentPlayer===1?2:1} の番です`;
-                document.getElementById('pass-overlay').style.display = 'flex';
-                currentPlayer = currentPlayer === 1 ? 2 : 1;
-            } else {
-                currentPlayer = currentPlayer === 1 ? 2 : 1;
-                sync();
-            }
-            firstPick = null;
-            updateView();
-        }
-
-        function checkWin(p) {
-            const checkDir = (r,c,dr,dc) => {
-                let line = [];
-                for(let i=0; i<5; i++) {
-                    let nr=r+dr*i, nc=c+dc*i;
-                    if(nr>=0 && nr<SIZE && nc>=0 && nc<SIZE && boardData[nr][nc].owner===p && boardData[nr][nc].opened) line.push({r:nr,c:nc});
-                    else break;
-                }
-                if(line.length===5) { winLine = line; return true; }
-                return false;
-            };
-            for(let r=0; r<SIZE; r++) {
-                for(let c=0; c<SIZE; c++) {
-                    if(boardData[r][c].owner===p && boardData[r][c].opened) {
-                        if(checkDir(r,c,1,0) || checkDir(r,c,0,1) || checkDir(r,c,1,1) || checkDir(r,c,1,-1)) return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function endGame(msg) {
-            clearInterval(timerInterval);
-            document.getElementById('win-display').innerText = msg;
-            document.getElementById('end-status-msg').innerText = msg;
-            if(gameMode==='online') sync();
-            setTimeout(() => {
-                document.getElementById('game-end-overlay').style.display = 'flex';
-            }, 1500);
-            updateView();
-        }
-
-        function handleResetClick() {
-            if(gameMode === 'online') {
-                if(confirm("リタイアしますか？")) dbRef.update({ retiredBy: myPlayerId });
-            } else {
-                if(confirm("盤面をリセットしますか？")) init();
-            }
-        }
-
-        function startOnlineListener() {
-            dbRef.on('value', snap => {
-                const data = snap.val();
-                if(!data) return;
-                if(data.retiredBy) { endGame(`P${data.retiredBy} がリタイアしました`); return; }
-                boardData = data.board; currentPlayer = data.turn;
-                if(data.winLine) endGame(`PLAYER ${currentPlayer===1?2:1} の勝利！`);
-                updateView();
-            });
-        }
-
-        function sync() { if(dbRef) dbRef.set({ board: boardData, turn: currentPlayer, winLine: winLine.length>0 }); }
-
-        function updateView() {
-            const cells = document.querySelectorAll('.cell');
-            boardData.flat().forEach((d, i) => {
-                let r=Math.floor(i/SIZE), c=i%SIZE, t=cells[i].querySelector('.token');
-                if(!t) return;
-                t.style.backgroundColor = d.owner===1 ? 'var(--p1)':'var(--p2)';
-                
-                let isMe = (gameMode==='offline' && d.owner===(isWaitingPass ? (currentPlayer===1?2:1) : currentPlayer)) || (gameMode==='online' && d.owner===myPlayerId);
-                if(d.opened) t.className = 'token show opened';
-                else if(isMe && d.owner!==0) t.className = 'token show stealth';
-                else t.className = 'token';
-
-                if(winLine.length > 0) {
-                    if(winLine.some(l=>l.r===r && l.c===c)) t.classList.add('win-token');
-                    else t.classList.add('dimmed');
-                }
-                
-                // ハイライト表示
-                cells[i].classList.remove('last-move');
-                if(lastMoves.some(m=>m.r===r && m.c===c)) cells[i].classList.add('last-move');
-                cells[i].style.background = (firstPick && firstPick.r===r && firstPick.c===c) ? 'rgba(59, 130, 246, 0.2)' : 'var(--panel)';
-            });
-            document.getElementById('p1-ui').classList.toggle('active', currentPlayer===1);
-            document.getElementById('p2-ui').classList.toggle('active', currentPlayer===2);
-        }
-
-        function startTimerLoop() {
-            timerInterval = setInterval(() => {
-                if(winLine.length > 0 || isWaitingPass || !timerEnabled) return;
-                if(currentPlayer === 1) { if(p1Time > 0) p1Time--; else if(p1Byo > 0) p1Byo--; else endGame("P2 WIN BY TIME"); }
-                else { if(p2Time > 0) p2Time--; else if(p2Byo > 0) p2Byo--; else endGame("P1 WIN BY TIME"); }
-                const f = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
-                document.getElementById('p1-t').innerText = p1Time > 0 ? f(p1Time) : p1Byo;
-                document.getElementById('p1-byo').innerText = p1Time <= 0 ? "BYOYOMI" : "";
-                document.getElementById('p2-t').innerText = p2Time > 0 ? f(p2Time) : p2Byo;
-                document.getElementById('p2-byo').innerText = p2Time <= 0 ? "BYOYOMI" : "";
-            }, 1000);
-        }
-
-        function hidePassOverlay() { isWaitingPass = false; lastMoves = []; document.getElementById('pass-overlay').style.display = 'none'; updateView(); }
-        function toggleMenu() { const s=document.getElementById('settings-modal'); s.style.display=(s.style.display==='flex')?'none':'flex'; }
-        function toggleTimer(v) { timerEnabled=v; document.getElementById('tm-on').classList.toggle('active', v); document.getElementById('tm-off').classList.toggle('active', !v); }
-        function updateColors() { document.documentElement.style.setProperty('--p1', document.getElementById('p1-c').value); document.documentElement.style.setProperty('--p2', document.getElementById('p2-c').value); updateView(); }
-        function setMode(m) { document.body.className = (m==='dark'?'dark-mode':''); document.getElementById('m-light').classList.toggle('active',m==='light'); document.getElementById('m-dark').classList.toggle('active',m==='dark');}
-        function confirmRestart() { 
-            document.getElementById('game-end-overlay').style.display='none'; 
-            if(gameMode==='online') dbRef.set(null); 
-            location.reload(); 
         }
     </script>
 </body>
