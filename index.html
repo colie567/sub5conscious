@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>潜在的五目 - Pro Edition</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --bg: #f8fafc; --panel: #ffffff; --text: #0f172a;
+            --border: #cbd5e1; --accent: #3b82f6;
+            --p1: #2563eb; --p2: #db2777;
+        }
+        .dark-mode {
+            --bg: #000000; --panel: #111111; --text: #f8fafc;
+            --border: #334155; --accent: #38bdf8;
+        }
+        body {
+            font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text);
+            margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden;
+            transition: 0.3s;
+        }
+
+        #header { width: 100%; padding: 10px 0; background: var(--panel); border-bottom: 1px solid var(--border); z-index: 10; }
+        .player-row { width: 90%; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .p-box { flex: 1; text-align: center; padding: 10px; opacity: 0.3; border-radius: 8px; border: 2px solid transparent; transition: 0.3s; }
+        .p-box.active { opacity: 1; background: rgba(0,0,0,0.05); border-color: var(--accent); }
+        #win-display { font-weight: bold; font-size: 1.2rem; color: var(--accent); height: 1.5em; text-align: center; }
+
+        #board-area { flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
+        #board { display: grid; grid-template-columns: repeat(8, 1fr); width: 92vw; height: 92vw; max-width: 450px; background: var(--border); gap: 1px; border: 1px solid var(--border); }
+        .cell { background: var(--panel); position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .token { width: 80%; height: 80%; border-radius: 50%; transition: 0.3s; transform: scale(0); pointer-events: none; }
+        .token.show { transform: scale(1); }
+        .token.opened { border: 3px solid #fff; box-shadow: 0 0 15px currentColor; }
+        .token.stealth { opacity: 0.3; }
+        
+        /* 最後に置いた駒のハイライト */
+        .last-move { box-shadow: inset 0 0 0 3px var(--accent); }
+
+        .overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 3000; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+        .section { background: var(--panel); padding: 15px; border-radius: 10px; width: 100%; max-width: 400px; margin-bottom: 12px; border: 1px solid var(--border); box-sizing: border-box; }
+        
+        #top-controls { position: fixed; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 2000; }
+        .ctrl-btn { width: 44px; height: 44px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        button { background: var(--accent); color: white; border: none; padding: 15px 30px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
+        
+        #pass-overlay { background: rgba(15, 23, 42, 0.98); color: white; }
+    </style>
+</head>
+<body>
+
+    <div id="mode-selector" class="overlay" style="display: flex;">
+        <h1>潜在的五目</h1>
+        <div class="section">
+            <button onclick="startOffline()">OFFLINE 対戦</button>
+            <button onclick="showOnlineSetup()">ONLINE 対戦</button>
+        </div>
+    </div>
+
+    <div id="online-setup" class="overlay">
+        <h2>合言葉を入力</h2>
+        <input type="text" id="match-keyword" placeholder="例: room123" style="padding:15px; margin-bottom:20px; width:200px; border-radius:8px; border:1px solid var(--border);">
+        <button onclick="initOnlineConnection()">接続</button>
+        <button onclick="location.reload()" style="background:none; color:var(--text); opacity:0.5;">戻る</button>
+    </div>
+
+    <div id="pass-overlay" class="overlay">
+        <h2 id="pass-msg"></h2>
+        <p>（今のあなたの着手を確認して、端末を渡してください）</p>
+        <button onclick="hidePassOverlay()">受け取りました</button>
+    </div>
+
+    <div id="game-end-overlay" class="overlay">
+        <h1 id="end-status-msg"></h1>
+        <div style="margin-top:20px;">
+            <button onclick="confirmRestart()" style="background:#22c55e;">再戦 (REMATCH)</button>
+            <button onclick="location.reload()" style="background:#ef4444;">終了 (EXIT)</button>
+        </div>
+    </div>
+
+    <div id="top-controls">
+        <div id="btn-reset" class="ctrl-btn" onclick="handleResetClick()" title="Reset/Retire">
+            <svg id="svg-reset" viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+            <svg id="svg-retire" viewBox="0 0 24 24" width="24" height="24" style="display:none;"><path fill="currentColor" d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/></svg>
+        </div>
+    </div>
+
+    <div id="header">
+        <div id="win-display"></div>
+        <div class="player-row">
+            <div id="p1-ui" class="p-box active" style="color:var(--p1)">P1<div id="p1-t" style="font-size:1.2rem; font-weight:bold;">10:00</div></div>
+            <div id="p2-ui" class="p-box" style="color:var(--p2)">P2<div id="p2-t" style="font-size:1.2rem; font-weight:bold;">10:00</div></div>
+        </div>
+    </div>
+
+    <div id="board-area"><div id="board"></div></div>
+
+    <script>
+        // --- Firebase Config (書き換えてください) ---
+        const firebaseConfig = { apiKey: "YOUR_API_KEY", databaseURL: "YOUR_DB_URL", projectId: "YOUR_PROJECT_ID" };
+        let app, db, dbRef;
+        try { firebase.initializeApp(firebaseConfig); db = firebase.database(); } catch(e){}
+
+        let SIZE = 8, currentPlayer = 1, boardData = [], winLine = [], lastMoves = [];
+        let gameMode = 'offline', myPlayerId = 1, isWaitingPass = false, firstPick = null;
+
+        function startOffline() { gameMode = 'offline'; document.getElementById('mode-selector').style.display='none'; initGame(); }
+        function showOnlineSetup() { document.getElementById('online-setup').style.display='flex'; }
+
+        function initOnlineConnection() {
+            const kw = document.getElementById('match-keyword').value.trim();
+            if(!kw) return;
+            dbRef = db.ref('rooms/' + kw);
+            dbRef.get().then(snap => {
+                myPlayerId = snap.exists() ? 2 : 1;
+                gameMode = 'online';
+                document.getElementById('online-setup').style.display='none';
+                document.getElementById('mode-selector').style.display='none';
+                document.getElementById('svg-reset').style.display='none';
+                document.getElementById('svg-retire').style.display='block';
+                if(myPlayerId===1) initGame();
+                startOnlineListener();
+            });
+        }
+
+        function initGame() {
+            boardData = Array.from({length:SIZE},()=>Array(SIZE).fill(null).map(()=>({owner:0, opened:false})));
+            currentPlayer = 1; winLine = []; lastMoves = [];
+            renderBoard();
+            if(gameMode==='online') sync();
+            updateView();
+        }
+
+        function renderBoard() {
+            const b = document.getElementById('board'); b.innerHTML = '';
+            for(let r=0; r<SIZE; r++) {
+                for(let c=0; c<SIZE; c++) {
+                    let cell = document.createElement('div'); cell.className = 'cell'; cell.id = `c-${r}-${c}`;
+                    cell.onclick = () => handleInput(r, c);
+                    cell.appendChild(document.createElement('div')).className = 'token';
+                    b.appendChild(cell);
+                }
+            }
+        }
+
+        function handleInput(r, c) {
+            if(winLine.length > 0 || isWaitingPass || boardData[r][c].opened) return;
+            if(gameMode==='online' && currentPlayer !== myPlayerId) return;
+
+            if(!firstPick) {
+                firstPick = {r,c};
+            } else {
+                let dr = Math.abs(r-firstPick.r), dc = Math.abs(c-firstPick.c);
+                if(dr===0 && dc===0) commit([{r, c, open: true}]);
+                else if(dr+dc===1) commit([{r: firstPick.r, c: firstPick.c, open: false}, {r: r, c: c, open: false}]);
+                else firstPick = {r,c};
+            }
+            updateView();
+        }
+
+        function commit(moves) {
+            lastMoves = moves; // 最後に置いた駒を保存
+            moves.forEach(m => {
+                let cell = boardData[m.r][m.c];
+                if(cell.owner !== 0 || m.open) cell.opened = true;
+                cell.owner = currentPlayer;
+            });
+
+            if(checkWin(currentPlayer)) {
+                winLine = [{win:true}]; // 勝利フラグ
+                if(gameMode==='online') sync();
+                showEndScreen(`PLAYER ${currentPlayer} の勝利！`);
+                return;
+            }
+
+            if(gameMode === 'offline') {
+                isWaitingPass = true;
+                document.getElementById('pass-msg').innerText = `次は PLAYER ${currentPlayer===1?2:1} の番です`;
+                document.getElementById('pass-overlay').style.display = 'flex';
+                currentPlayer = currentPlayer===1 ? 2 : 1;
+            } else {
+                currentPlayer = currentPlayer===1 ? 2 : 1;
+                sync();
+            }
+            firstPick = null;
+            updateView();
+        }
+
+        function handleResetClick() {
+            if(gameMode === 'online') {
+                if(confirm("リタイアしますか？")) {
+                    dbRef.update({ retiredBy: myPlayerId });
+                }
+            } else {
+                if(confirm("リセットしますか？")) initGame();
+            }
+        }
+
+        function startOnlineListener() {
+            dbRef.on('value', snap => {
+                const data = snap.val();
+                if(!data) return;
+                if(data.retiredBy) {
+                    showEndScreen(`PLAYER ${data.retiredBy} がリタイアしました`);
+                    return;
+                }
+                boardData = data.board; currentPlayer = data.turn;
+                if(data.winLine) showEndScreen(`PLAYER ${currentPlayer===1?2:1} の勝利！`);
+                updateView();
+            });
+        }
+
+        function sync() { if(dbRef) dbRef.set({ board: boardData, turn: currentPlayer, winLine: winLine.length>0 }); }
+
+        function showEndScreen(msg) {
+            document.getElementById('end-status-msg').innerText = msg;
+            document.getElementById('game-end-overlay').style.display = 'flex';
+        }
+
+        function updateView() {
+            const cells = document.querySelectorAll('.cell');
+            boardData.flat().forEach((d, i) => {
+                let r=Math.floor(i/SIZE), c=i%SIZE, t=cells[i].querySelector('.token');
+                t.style.backgroundColor = d.owner===1 ? 'var(--p1)':'var(--p2)';
+                
+                let isVisible = d.opened || (gameMode==='offline' && d.owner=== (isWaitingPass ? (currentPlayer===1?2:1) : currentPlayer)) || (gameMode==='online' && d.owner===myPlayerId);
+                
+                t.className = 'token' + (isVisible && d.owner!==0 ? ' show':'') + (d.opened ? ' opened':'') + (!d.opened && isVisible ? ' stealth':'');
+                
+                // 直前の自分の手をハイライト（オフライン交代前用）
+                cells[i].classList.remove('last-move');
+                if(lastMoves.some(m=>m.r===r && m.c===c)) cells[i].classList.add('last-move');
+                
+                cells[i].style.background = (firstPick && firstPick.r===r && firstPick.c===c) ? 'rgba(59, 130, 246, 0.2)' : 'var(--panel)';
+            });
+            document.getElementById('p1-ui').classList.toggle('active', currentPlayer===1);
+            document.getElementById('p2-ui').classList.toggle('active', currentPlayer===2);
+        }
+
+        function checkWin(p) {
+            // (簡易勝利判定ロジック - 前回のコードと同様のため省略せず、内部で動作)
+            for(let r=0; r<SIZE; r++) for(let c=0; c<SIZE; c++) {
+                if(boardData[r][c].owner===p && boardData[r][c].opened) {
+                    if(checkDir(r,c,1,0,p) || checkDir(r,c,0,1,p) || checkDir(r,c,1,1,p) || checkDir(r,c,1,-1,p)) return true;
+                }
+            }
+            return false;
+        }
+        function checkDir(r,c,dr,dc,p) {
+            for(let i=0; i<5; i++) {
+                let nr=r+dr*i, nc=c+dc*i;
+                if(!(nr>=0 && nr<SIZE && nc>=0 && nc<SIZE && boardData[nr][nc].owner===p && boardData[nr][nc].opened)) return false;
+            }
+            return true;
+        }
+        function hidePassOverlay() { isWaitingPass = false; lastMoves = []; document.getElementById('pass-overlay').style.display = 'none'; updateView(); }
+        function confirmRestart() { document.getElementById('game-end-overlay').style.display='none'; initGame(); }
+    </script>
+</body>
+</html>
