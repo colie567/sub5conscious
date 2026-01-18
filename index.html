@@ -9,49 +9,53 @@
     
     <style>
         :root {
-            --bg: #f8fafc; --panel: #ffffff; --text: #0f172a;
-            --border: #cbd5e1; --accent: #3b82f6;
-            --p1: #2563eb; --p2: #db2777;
+            --bg: #0f172a; --panel: #1e293b; --text: #f8fafc;
+            --border: #334155; --accent: #3b82f6;
+            --p1: #3b82f6; --p2: #ec4899;
         }
         body {
             font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text);
             margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden;
         }
 
-        /* Header & Timer */
-        #header { width: 100%; padding: 10px 0; background: var(--panel); border-bottom: 1px solid var(--border); z-index: 10; text-align: center; }
-        .timer-bar { display: flex; justify-content: center; gap: 30px; font-size: 1.8rem; font-weight: 900; font-family: monospace; }
-        .p-box { opacity: 0.2; transition: 0.3s; }
+        /* Header */
+        #header { width: 100%; padding: 15px 0; background: var(--panel); border-bottom: 1px solid var(--border); text-align: center; }
+        .timer-bar { display: flex; justify-content: center; gap: 40px; font-size: 2rem; font-weight: 800; font-family: 'Courier New', monospace; }
+        .p-box { opacity: 0.2; transition: 0.4s; }
         .p-box.active { opacity: 1; color: var(--accent); transform: scale(1.1); }
-        #win-display { font-weight: bold; font-size: 0.9rem; color: var(--accent); min-height: 1.2em; }
+        #status-msg { font-size: 0.9rem; color: var(--accent); margin-bottom: 5px; min-height: 1.2em; letter-spacing: 2px; }
 
-        /* Board Area */
+        /* Board */
         #board-area { flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
-        #board { display: grid; grid-template-columns: repeat(8, 1fr); width: 92vw; height: 92vw; max-width: 450px; background: var(--border); gap: 1px; border: 2px solid var(--border); }
-        .cell { background: var(--panel); position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; }
-        .token { width: 80%; height: 80%; border-radius: 50%; transition: 0.3s; transform: scale(0); pointer-events: none; }
+        #board { display: grid; grid-template-columns: repeat(8, 1fr); width: 90vw; height: 90vw; max-width: 450px; background: var(--border); gap: 1px; border: 2px solid var(--border); }
+        .cell { background: var(--panel); position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .token { width: 80%; height: 80%; border-radius: 50%; transition: 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); transform: scale(0); pointer-events: none; }
         .token.show { transform: scale(1); }
         .token.opened { border: 3px solid #fff; box-shadow: 0 0 15px currentColor; }
-        .token.stealth { opacity: 0.3; }
+        .token.stealth { opacity: 0.25; }
 
-        /* UI Layers */
-        .overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 3000; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
-        .section { background: var(--panel); padding: 15px; border-radius: 10px; width: 100%; max-width: 400px; margin-bottom: 12px; border: 1px solid var(--border); box-sizing: border-box; }
-        button { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin: 5px 0; }
-        button.primary { background: var(--accent); color: white; border: none; }
+        /* Overlays */
+        .overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 3000; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .section { background: var(--panel); padding: 20px; border-radius: 12px; width: 100%; max-width: 350px; margin-bottom: 15px; border: 1px solid var(--border); }
+        button { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin: 8px 0; font-size: 1rem; }
+        button.primary { background: var(--accent); border: none; }
         
-        #top-controls { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 2000; }
-        .ctrl-btn { width: 50px; height: 50px; background: var(--panel); border: 1px solid var(--border); border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); font-size: 1.5rem; }
+        /* Special Layers */
+        #pass-overlay { background: #000; color: #fff; text-align: center; }
+        #pass-overlay h1 { font-size: 1.2rem; margin-bottom: 40px; }
+
+        #top-controls { position: fixed; bottom: 25px; right: 25px; display: flex; gap: 15px; z-index: 2000; }
+        .ctrl-btn { width: 55px; height: 55px; background: var(--panel); border: 1px solid var(--border); border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.4); font-size: 1.5rem; }
         
-        @keyframes winBounce { 0%,100%{transform:scale(1.1);} 50%{transform:scale(1.3); filter:brightness(1.2);} }
-        .win-token { animation: winBounce 0.6s infinite; z-index: 10; }
+        @keyframes winAnim { 0%,100%{transform:scale(1);} 50%{transform:scale(1.2); filter:brightness(1.3);} }
+        .win-token { animation: winAnim 0.6s infinite; z-index: 10; }
         .dimmed { opacity: 0.1 !important; }
     </style>
 </head>
 <body>
 
     <div id="header">
-        <div id="win-display"></div>
+        <div id="status-msg">READY</div>
         <div class="timer-bar">
             <div id="p1-ui" class="p-box active">P1 <span id="p1-t">10:00</span></div>
             <div id="p2-ui" class="p-box">P2 <span id="p2-t">10:00</span></div>
@@ -60,8 +64,255 @@
 
     <div id="board-area"><div id="board"></div></div>
 
-    <div id="mode-selector" class="overlay" style="display: flex;">
-        <h1 style="font-size: 2.5rem; margin-bottom: 30px;">sub5conscious</h1>
+    <div id="menu-overlay" class="overlay" style="display: flex;">
+        <h1 style="font-size: 3rem; margin-bottom: 40px; letter-spacing: -2px;">sub5conscious</h1>
+        <div class="section">
+            <button class="primary" onclick="startGame('offline')">OFFLINE START</button>
+            <button class="primary" onclick="showOnlineSetup()">ONLINE MATCH</button>
+        </div>
+        <button onclick="showLogs()" style="width:auto; font-size:0.8rem; opacity:0.6; border:none;">ANALYSIS LOG</button>
+    </div>
+
+    <div id="pass-overlay" class="overlay">
+        <h1 id="pass-player-name">PLAYER 2 のターン</h1>
+        <p style="opacity:0.6;">端末を渡してください</p>
+        <button onclick="resumeGame()" style="background:#fff; color:#000; width:220px; margin-top:50px; border-radius:50px;">受け取りました</button>
+    </div>
+
+    <div id="online-overlay" class="overlay">
+        <h2>ONLINE SETUP</h2>
+        <div class="section">
+            <input type="text" id="match-kw" placeholder="キーワードを入力" style="width:100%; padding:15px; background:#0f172a; border:1px solid var(--border); color:#fff; border-radius:8px; box-sizing:border-box;">
+            <button class="primary" onclick="connectOnline()" style="margin-top:15px;">CONNECT</button>
+        </div>
+        <button onclick="closeOverlays()" style="border:none; opacity:0.5;">CANCEL</button>
+    </div>
+
+    <div id="settings-overlay" class="overlay">
+        <h2>SETTINGS</h2>
+        <div class="section">
+            <label style="font-size:0.8rem; display:block; margin-bottom:10px;">TIME CONTROL</label>
+            <div style="display:flex; gap:10px;">
+                <input type="number" id="cfg-min" value="10" style="width:50%; padding:10px;">
+                <input type="number" id="cfg-byo" value="30" style="width:50%; padding:10px;">
+            </div>
+            <button class="primary" onclick="applySettings()" style="margin-top:15px;">APPLY & RESET</button>
+        </div>
+        <button onclick="closeOverlays()">CLOSE</button>
+    </div>
+
+    <div id="log-overlay" class="overlay">
+        <h2>STATISTICS</h2>
+        <div class="section"><pre id="log-box" style="text-align:left; color:#10b981; font-family:monospace; font-size:0.8rem; height:200px; overflow-y:auto;"></pre></div>
+        <button onclick="closeOverlays()">CLOSE</button>
+    </div>
+
+    <div id="top-controls">
+        <div class="ctrl-btn" onclick="handleReset()">🔄</div>
+        <div class="ctrl-btn" onclick="openSettings()">≡</div>
+    </div>
+
+    <script>
+        // --- Firebase Config ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAIkCvmJVZE9qzeAPFTIEijsuZ_HGRiUlA",
+            authDomain: "sub5conscious.firebaseapp.com",
+            projectId: "sub5conscious",
+            databaseURL: "https://sub5conscious-default-rtdb.firebaseio.com",
+            storageBucket: "sub5conscious.firebasestorage.app",
+            messagingSenderId: "774659474330",
+            appId: "1:774659474330:web:d1ff3843a96f6e6001b023"
+        };
+        
+        let db = null, dbRef = null;
+        try { firebase.initializeApp(firebaseConfig); db = firebase.database(); } catch(e) {}
+
+        // --- Game State ---
+        let SIZE = 8, board = [], currentPlayer = 1, winLine = null;
+        let p1Time = 600, p2Time = 600, p1Byo = 30, p2Byo = 30;
+        let configMin = 10, configByo = 30, timerId = null;
+        let mode = 'offline', myId = 1, firstSelect = null, isPassing = false;
+
+        function startGame(m) {
+            mode = m;
+            document.querySelectorAll('.overlay').forEach(o => o.style.display = 'none');
+            resetGame();
+        }
+
+        function resetGame() {
+            clearInterval(timerId);
+            board = Array.from({length:SIZE}, () => Array(SIZE).fill(null).map(() => ({p:0, open:false})));
+            currentPlayer = 1; winLine = null; firstSelect = null; isPassing = false;
+            p1Time = configMin * 60; p2Time = p1Time; p1Byo = configByo; p2Byo = configByo;
+            
+            const grid = document.getElementById('board');
+            grid.innerHTML = '';
+            for(let r=0; r<SIZE; r++) {
+                for(let c=0; c<SIZE; c++) {
+                    let cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.onclick = () => handleCellClick(r, c);
+                    let t = document.createElement('div');
+                    t.className = 'token';
+                    cell.appendChild(t);
+                    grid.appendChild(cell);
+                }
+            }
+            if(mode === 'online' && dbRef && myId === 1) syncOnline();
+            startTimer();
+            updateUI();
+        }
+
+        function handleCellClick(r, c) {
+            if(winLine || isPassing || board[r][c].open) return;
+            if(mode === 'online' && currentPlayer !== myId) return;
+
+            if(!firstSelect) {
+                firstSelect = {r, c};
+            } else {
+                let dr = Math.abs(r - firstSelect.r), dc = Math.abs(c - firstSelect.c);
+                if(dr === 0 && dc === 0) {
+                    place(r, c, true); // 1点設置(公開)
+                } else if(dr + dc === 1) {
+                    place(firstSelect.r, firstSelect.c, false);
+                    place(r, c, false); // ドミノ設置(非公開)
+                } else {
+                    firstSelect = {r, c};
+                }
+            }
+            updateUI();
+        }
+
+        function place(r, c, forceOpen) {
+            let cell = board[r][c];
+            if(cell.p !== 0 || forceOpen) cell.open = true;
+            cell.p = currentPlayer;
+
+            if(checkWin(currentPlayer)) {
+                winLine = true; // 簡略化のため
+                endGame(`PLAYER ${currentPlayer} WIN!`);
+            } else {
+                nextTurn();
+            }
+        }
+
+        function nextTurn() {
+            firstSelect = null;
+            if(mode === 'offline') {
+                isPassing = true;
+                document.getElementById('pass-player-name').innerText = `PLAYER ${currentPlayer === 1 ? 2 : 1} のターン`;
+                document.getElementById('pass-overlay').style.display = 'flex';
+                currentPlayer = (currentPlayer === 1) ? 2 : 1;
+            } else {
+                currentPlayer = (currentPlayer === 1) ? 2 : 1;
+                syncOnline();
+            }
+        }
+
+        function resumeGame() {
+            isPassing = false;
+            document.getElementById('pass-overlay').style.display = 'none';
+            updateUI();
+        }
+
+        function checkWin(p) {
+            const check = (r, c, dr, dc) => {
+                for(let i=0; i<5; i++) {
+                    let nr = r+dr*i, nc = c+dc*i;
+                    if(nr<0||nr>=SIZE||nc<0||nc>=SIZE||board[nr][nc].p!==p||!board[nr][nc].open) return false;
+                }
+                return true;
+            };
+            for(let r=0; r<SIZE; r++) {
+                for(let c=0; c<SIZE; c++) {
+                    if(check(r,c,1,0)||check(r,c,0,1)||check(r,c,1,1)||check(r,c,1,-1)) return true;
+                }
+            }
+            return false;
+        }
+
+        function updateUI() {
+            const tokens = document.querySelectorAll('.token');
+            const cells = document.querySelectorAll('.cell');
+            board.flat().forEach((cell, i) => {
+                let t = tokens[i];
+                t.style.backgroundColor = cell.p === 1 ? 'var(--p1)' : 'var(--p2)';
+                
+                let isMe = (mode === 'offline' && !isPassing && cell.p === currentPlayer) || (mode === 'online' && cell.p === myId);
+                
+                if(cell.open) t.className = 'token show opened';
+                else if(isMe && cell.p !== 0) t.className = 'token show stealth';
+                else t.className = 'token';
+
+                let r = Math.floor(i/SIZE), c = i%SIZE;
+                cells[i].style.background = (firstSelect && firstSelect.r===r && firstSelect.c===c) ? 'rgba(59, 130, 246, 0.2)' : 'var(--panel)';
+            });
+            document.getElementById('p1-ui').classList.toggle('active', currentPlayer===1);
+            document.getElementById('p2-ui').classList.toggle('active', currentPlayer===2);
+            document.getElementById('status-msg').innerText = winLine ? "GAME OVER" : (isPassing ? "PASSING..." : `TURN: P${currentPlayer}`);
+        }
+
+        function startTimer() {
+            timerId = setInterval(() => {
+                if(winLine || isPassing) return;
+                if(currentPlayer === 1) { if(p1Time > 0) p1Time--; else p1Byo--; if(p1Byo<0) endGame("P2 WIN (TIME)"); }
+                else { if(p2Time > 0) p2Time--; else p2Byo--; if(p2Byo<0) endGame("P1 WIN (TIME)"); }
+                
+                const fmt = (t, b) => `${Math.floor(t/60)}:${(t%60).toString().padStart(2,'0')}${t<=0?` (${b})`:''}`;
+                document.getElementById('p1-t').innerText = fmt(p1Time, p1Byo);
+                document.getElementById('p2-t').innerText = fmt(p2Time, p2Byo);
+            }, 1000);
+        }
+
+        function endGame(m) {
+            clearInterval(timerId);
+            document.getElementById('status-msg').innerText = m;
+            if(mode === 'online' && myId === 1) db.ref('game_logs').push({winner: currentPlayer, date: Date.now()});
+            setTimeout(() => { alert(m); location.reload(); }, 500);
+        }
+
+        // --- Online Logic ---
+        function showOnlineSetup() { document.getElementById('online-overlay').style.display = 'flex'; }
+        function connectOnline() {
+            const kw = document.getElementById('match-kw').value.trim();
+            if(!kw || !db) return;
+            dbRef = db.ref('rooms/' + kw);
+            dbRef.get().then(snap => {
+                myId = snap.exists() ? 2 : 1;
+                dbRef.on('value', s => {
+                    const data = s.val();
+                    if(!data) return;
+                    board = data.board; currentPlayer = data.turn;
+                    if(data.win) endGame(`PLAYER ${currentPlayer===1?2:1} WIN!`);
+                    updateUI();
+                });
+                startGame('online');
+            });
+        }
+        function syncOnline() { if(dbRef) dbRef.set({ board: board, turn: currentPlayer, win: !!winLine }); }
+
+        // --- Settings & Logs ---
+        function openSettings() { document.getElementById('settings-overlay').style.display = 'flex'; }
+        function applySettings() {
+            configMin = parseInt(document.getElementById('cfg-min').value) || 10;
+            configByo = parseInt(document.getElementById('cfg-byo').value) || 30;
+            resetGame();
+            closeOverlays();
+        }
+        function showLogs() {
+            document.getElementById('log-overlay').style.display = 'flex';
+            if(!db) return;
+            db.ref('game_logs').limitToLast(5).once('value', snap => {
+                let txt = "LATEST RESULTS:\n";
+                snap.forEach(s => { txt += `> Winner: P${s.val().winner}\n`; });
+                document.getElementById('log-box').innerText = txt;
+            });
+        }
+        function closeOverlays() { document.querySelectorAll('.overlay').forEach(o => { if(o.id !== 'menu-overlay') o.style.display = 'none'; }); }
+        function handleReset() { if(confirm("RESET GAME?")) location.reload(); }
+    </script>
+</body>
+</html>
         <div class="section">
             <button class="primary" onclick="startOffline()">OFFLINE 対戦</button>
             <button class="primary" onclick="showOnlineSetup()">ONLINE 対戦</button>
