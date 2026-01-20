@@ -2,39 +2,593 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>sub5conscious</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         :root {
-            --bg: #0f172a; --panel: #1e293b; --text: #f8fafc;
-            --border: #334155; --accent: #3b82f6;
-            --p1: #3b82f6; --p2: #ec4899;
+            --bg-color: #f0f2f5;
+            --text-color: #333;
+            --board-bg: #dcb35c;
+            --cell-border: #b58868;
+            --p1-color: #000;
+            --p2-color: #fff;
+            --highlight: rgba(0, 255, 0, 0.4);
+            --win-line: rgba(255, 0, 0, 0.7);
+            --panel-bg: rgba(255,255,255,0.9);
         }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --board-bg: #8b6d3e;
+            --cell-border: #5c4033;
+            --panel-bg: rgba(30,30,30,0.9);
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
+            overflow: hidden; /* Prevent scroll on mobile */
+        }
+
+        /* --- Header & Controls --- */
+        #top-bar {
+            width: 100%;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+            background: var(--panel-bg);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            background: #4a90e2;
+            color: white;
+            transition: 0.2s;
+            margin-left: 5px;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-danger { background: #e74c3c; }
+        .btn-secondary { background: #95a5a6; }
+
+        /* --- Status Display (Top Center) --- */
+        #game-status {
+            position: absolute;
+            top: 60px;
+            width: 100%;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            pointer-events: none;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 20;
+            height: 40px;
+        }
+
+        /* --- Main Game Area --- */
+        #game-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            width: 90vmin;
+            height: 90vmin;
+            max-width: 500px;
+            max-height: 500px;
+            background-color: var(--board-bg);
+            border: 5px solid var(--cell-border);
+            position: relative;
+        }
+
+        .cell {
+            border: 1px solid var(--cell-border);
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .stone {
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            box-shadow: 2px 2px 2px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+        }
+
+        /* Cell Status Styles */
+        .stone.p1 { background-color: var(--p1-color); }
+        .stone.p2 { background-color: var(--p2-color); }
         
-        /* UI Components */
-        #header { width: 100%; padding: 10px 0; background: var(--panel); border-bottom: 1px solid var(--border); text-align: center; z-index: 10; }
-        .timer-bar { display: flex; justify-content: center; gap: 30px; font-size: 1.8rem; font-weight: 900; font-family: monospace; }
-        .p-box { opacity: 0.2; transition: 0.4s; }
-        .p-box.active { opacity: 1; color: var(--accent); transform: scale(1.1); }
-        #status-msg { font-size: 0.8rem; color: var(--accent); min-height: 1.2em; letter-spacing: 2px; text-transform: uppercase; }
+        /* Stealth vs Opened */
+        .stone.stealth { opacity: 0.3; } /* Visible to owner */
+        .stone.opened { opacity: 1.0; border: 2px solid gold; }
+        .stone.hidden { display: none; } /* Hidden from opponent */
 
-        /* Game Board */
-        #board-area { flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
-        #board { display: grid; grid-template-columns: repeat(8, 1fr); width: 92vw; height: 92vw; max-width: 450px; background: var(--border); gap: 1px; border: 2px solid var(--border); }
-        .cell { background: var(--panel); position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .token { width: 80%; height: 80%; border-radius: 50%; transition: 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); transform: scale(0); pointer-events: none; }
-        .token.show { transform: scale(1); }
-        .token.opened { border: 3px solid #fff; box-shadow: 0 0 15px currentColor; }
-        .token.stealth { opacity: 0.25; }
+        .cell.selected { background-color: var(--highlight); }
+        .cell.last-move { box-shadow: inset 0 0 10px rgba(0,0,255,0.5); }
 
-        /* Overlays */
-        .overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 3000; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        .section { background: var(--panel); padding: 20px; border-radius: 12px; width: 100%; max-width: 350px; margin-bottom: 15px; border: 1px solid var(--border); }
-        button { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin: 5px 0; font-size: 1rem; }
-        button.primary { background: var(--accent); border: none; }
+        /* Win Line Animation */
+        .win-line-cell {
+            background-color: rgba(255, 215, 0, 0.6) !important;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* --- Overlays & Modals --- */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            flex-direction: column;
+        }
+        .modal-content {
+            background: var(--bg-color);
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .hidden { display: none !important; }
+
+        .form-group { margin: 10px 0; text-align: left; }
+        label { display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 8px; box-sizing: border-box; }
+
+        /* Developer Mode & Analysis */
+        #dev-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            background: rgba(0,0,0,0.9);
+            color: #0f0;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            display: none;
+            z-index: 200;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="top-bar">
+        <div>
+            <button class="btn" onclick="app.goHome()">HOME</button>
+            <button class="btn btn-secondary" onclick="app.toggleOptions()">Options</button>
+        </div>
+        <div>
+            <button id="btn-reset" class="btn btn-danger hidden" onclick="game.resetGame()">Reset</button>
+            <button id="btn-retire" class="btn btn-danger hidden" onclick="game.retire()">Retire</button>
+        </div>
+    </div>
+
+    <div id="game-status"></div>
+
+    <div id="game-container">
+        <div id="board">
+            </div>
+    </div>
+
+    <div id="menu-overlay" class="modal">
+        <div class="modal-content">
+            <h2>sub5conscious</h2>
+            <p>潜在的五目 - Potential Gomoku</p>
+            <button class="btn" style="width:100%; margin:5px 0;" onclick="app.startLocal()">Offline (2P)</button>
+            <button class="btn" style="width:100%; margin:5px 0;" onclick="app.startAI()">Vs AI (CPU)</button>
+            <button class="btn" style="width:100%; margin:5px 0;" onclick="app.showOnlineMenu()">Online (P2P)</button>
+            <button class="btn btn-secondary" style="width:100%; margin:5px 0;" onclick="app.showAnalysis()">Analysis Mode</button>
+        </div>
+    </div>
+
+    <div id="online-menu" class="modal hidden">
+        <div class="modal-content">
+            <h3>Online Match</h3>
+            <div class="form-group">
+                <label>Room Password (ID)</label>
+                <input type="text" id="room-id" placeholder="Enter same ID to match">
+            </div>
+            <button class="btn" onclick="network.hostGame()">Create/Join Room</button>
+            <button class="btn btn-secondary" onclick="app.goHome()">Cancel</button>
+            <p id="online-status" style="font-size: 0.8em; margin-top:10px; color: #888;">Connecting to server...</p>
+        </div>
+    </div>
+
+    <div id="options-menu" class="modal hidden">
+        <div class="modal-content">
+            <h3>Options</h3>
+            <div class="form-group">
+                <label>Theme</label>
+                <button class="btn btn-secondary" onclick="app.toggleTheme()">Toggle Dark/Light</button>
+            </div>
+            <div class="form-group">
+                <label>Timer</label>
+                <select id="timer-setting">
+                    <option value="0">No Timer</option>
+                    <option value="300">5 Minutes</option>
+                    <option value="600">10 Minutes</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Developer Mode</label>
+                <button class="btn btn-secondary" onclick="app.toggleDevMode()">Toggle Dev Mode</button>
+            </div>
+            <button class="btn" onclick="app.closeOptions()">Close</button>
+        </div>
+    </div>
+
+    <div id="game-end-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="end-reason">Winner!</h2>
+            <div id="online-end-controls" class="hidden">
+                <button class="btn" onclick="network.requestRematch()">Rematch</button>
+                <button class="btn btn-danger" onclick="network.disconnect()">Retire/Exit</button>
+            </div>
+            <div id="offline-end-controls">
+                <button class="btn" onclick="game.resetGame()">Play Again</button>
+                <button class="btn btn-secondary" onclick="app.goHome()">Home</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dev-panel">
+        <strong>DEVELOPER MODE</strong>
+        <button onclick="recorder.downloadKifu()">Download Kifu (JSON)</button>
+        <button onclick="ai.enhanceWithGemini()">Enhance AI (Gemini)</button>
+        <span id="dev-status">Ready.</span>
+    </div>
+
+<script>
+/**
+ * sub5conscious - Core Logic
+ */
+
+// --- Constants & Config ---
+const BOARD_SIZE = 8;
+const PLAYER_NONE = 0;
+const PLAYER_1 = 1;
+const PLAYER_2 = 2;
+
+const STATUS_EMPTY = 'empty';
+const STATUS_STEALTH = 'stealth';
+const STATUS_OPENED = 'opened';
+
+// --- Global State ---
+const state = {
+    board: [], // 8x8 array of { owner, status }
+    currentPlayer: PLAYER_1,
+    turnCount: 0,
+    firstSelection: null, // {r, c}
+    mode: 'offline', // 'offline', 'ai', 'online', 'analysis'
+    myPlayerId: PLAYER_1, // For online/AI (1 or 2)
+    isGameOver: false,
+    timer: { p1: 0, p2: 0, active: false },
+    theme: 'light',
+    devMode: false
+};
+
+// --- App Manager (UI & Flow) ---
+const app = {
+    init: () => {
+        app.createBoard();
+        app.applyTheme();
+        network.initPeer();
+    },
+
+    createBoard: () => {
+        const boardEl = document.getElementById('board');
+        boardEl.innerHTML = '';
+        state.board = [];
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            const row = [];
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                row.push({ owner: PLAYER_NONE, status: STATUS_EMPTY });
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.r = r;
+                cell.dataset.c = c;
+                cell.onclick = () => game.handleInput(r, c);
+                
+                const stone = document.createElement('div');
+                stone.className = 'stone hidden'; // Start hidden
+                cell.appendChild(stone);
+                boardEl.appendChild(cell);
+            }
+            state.board.push(row);
+        }
+    },
+
+    toggleTheme: () => {
+        state.theme = state.theme === 'light' ? 'dark' : 'light';
+        app.applyTheme();
+    },
+
+    applyTheme: () => {
+        document.documentElement.setAttribute('data-theme', state.theme);
+    },
+
+    goHome: () => {
+        document.getElementById('menu-overlay').classList.remove('hidden');
+        document.getElementById('online-menu').classList.add('hidden');
+        document.getElementById('game-end-modal').classList.add('hidden');
+        game.resetGame(true); // Silent reset
+    },
+
+    startLocal: () => {
+        state.mode = 'offline';
+        state.myPlayerId = 0; // See all (or handled by turn logic)
+        app.startGame();
+    },
+
+    startAI: () => {
+        state.mode = 'ai';
+        // Random first player
+        state.myPlayerId = Math.random() < 0.5 ? PLAYER_1 : PLAYER_2;
+        app.startGame();
+        if (state.currentPlayer !== state.myPlayerId) {
+            setTimeout(ai.makeMove, 1000);
+        }
+    },
+
+    showOnlineMenu: () => {
+        document.getElementById('menu-overlay').classList.add('hidden');
+        document.getElementById('online-menu').classList.remove('hidden');
+    },
+
+    startGame: () => {
+        document.getElementById('menu-overlay').classList.add('hidden');
+        document.getElementById('online-menu').classList.add('hidden');
+        document.getElementById('game-end-modal').classList.add('hidden');
+        
+        game.resetGame();
+        
+        // Random start logic for all modes (except forced logic)
+        // Per user request: "Always start online matches with a random first player"
+        // Core logic always starts P1, but we assign User to P1 or P2 randomly in Online/AI.
+        
+        app.updateUIControls();
+        view.render();
+    },
+
+    updateUIControls: () => {
+        const resetBtn = document.getElementById('btn-reset');
+        const retireBtn = document.getElementById('btn-retire');
+        
+        if (state.mode === 'online') {
+            resetBtn.classList.add('hidden');
+            retireBtn.classList.remove('hidden');
+        } else {
+            resetBtn.classList.remove('hidden');
+            retireBtn.classList.add('hidden');
+        }
+    },
+
+    toggleOptions: () => document.getElementById('options-menu').classList.remove('hidden'),
+    closeOptions: () => document.getElementById('options-menu').classList.add('hidden'),
+    
+    toggleDevMode: () => {
+        state.devMode = !state.devMode;
+        document.getElementById('dev-panel').style.display = state.devMode ? 'block' : 'none';
+        app.closeOptions();
+    },
+
+    showAnalysis: () => {
+        alert("Analysis Mode is a placeholder in this v1.0 version. \nDeveloper Mode allows Kifu download.");
+    }
+};
+
+// --- Game Logic ---
+const game = {
+    resetGame: (silent = false) => {
+        state.isGameOver = false;
+        state.firstSelection = null;
+        state.turnCount = 0;
+        state.currentPlayer = PLAYER_1; // Logic always starts with P1 turn
+        state.board.forEach(row => row.forEach(cell => {
+            cell.owner = PLAYER_NONE;
+            cell.status = STATUS_EMPTY;
+        }));
+        
+        recorder.init();
+        
+        if (!silent) {
+            view.updateStatus(`Game Start! Player ${state.currentPlayer}'s Turn`);
+            view.render();
+        }
+    },
+
+    handleInput: (r, c) => {
+        if (state.isGameOver) return;
+        
+        // Online/AI check: can only move if it's my turn
+        if (state.mode === 'online' && state.currentPlayer !== state.myPlayerId) return;
+        if (state.mode === 'ai' && state.currentPlayer !== state.myPlayerId) return;
+
+        const cell = state.board[r][c];
+
+        // First Click (Selection)
+        if (!state.firstSelection) {
+            // Rule: Cannot select 'opened' cells for the first click
+            if (cell.status === STATUS_OPENED) {
+                // UI Feedback: Invalid move
+                return; 
+            }
+            state.firstSelection = { r, c };
+            view.render(); // Highlight selection
+            return;
+        }
+
+        // Second Click (Commit)
+        const fromR = state.firstSelection.r;
+        const fromC = state.firstSelection.c;
+        const dist = Math.abs(r - fromR) + Math.abs(c - fromC);
+
+        let moveType = null;
+
+        // Logic B: Focus (Same cell) -> Instant Open
+        if (r === fromR && c === fromC) {
+            moveType = 'focus';
+        }
+        // Logic A: Domino (Adjacent) -> Stealth placement/upgrade
+        else if (dist === 1) {
+            moveType = 'domino';
+        } else {
+            // Invalid second click, cancel selection
+            state.firstSelection = null;
+            view.render();
+            return;
+        }
+
+        // Execute Move
+        game.executeMove({
+            player: state.currentPlayer,
+            coords: [{r: fromR, c: fromC}, {r, c}],
+            moveType: moveType,
+            turnIndex: state.turnCount
+        });
+
+        // Send to network if online
+        if (state.mode === 'online') {
+            network.sendMove({
+                type: 'MOVE',
+                player: state.currentPlayer,
+                coords: [{r: fromR, c: fromC}, {r, c}],
+                moveType: moveType,
+                turnIndex: state.turnCount
+            });
+        }
+    },
+
+    executeMove: (move) => {
+        const { player, coords, moveType } = move;
+        const target = coords[1]; // The target of the action (domino end or focus self)
+
+        if (moveType === 'focus') {
+            // Target becomes OPENED immediately
+            const cell = state.board[target.r][target.c];
+            cell.owner = player;
+            cell.status = STATUS_OPENED;
+        } else if (moveType === 'domino') {
+            // Apply to BOTH cells (Source and Target)
+            coords.forEach(coord => {
+                const cell = state.board[coord.r][coord.c];
+                // Rule: 
+                // empty -> stealth (owner = current)
+                // stealth -> opened (owner = current, overwrites previous)
+                // opened -> invalid (already checked in logic, but safety here)
+                
+                if (cell.status === STATUS_EMPTY) {
+                    cell.owner = player;
+                    cell.status = STATUS_STEALTH;
+                } else if (cell.status === STATUS_STEALTH) {
+                    cell.owner = player;
+                    cell.status = STATUS_OPENED;
+                }
+            });
+        }
+
+        recorder.addMove(move);
+        state.firstSelection = null;
+        view.render();
+        
+        // Check Win
+        const win = game.checkWin();
+        if (win) {
+            game.endGame(win);
+        } else {
+            game.switchTurn();
+        }
+    },
+
+    checkWin: () => {
+        // Check only OPENED cells for Current Player
+        const p = state.currentPlayer;
+        const b = state.board;
+        const dirs = [[0,1], [1,0], [1,1], [1,-1]]; // Horizontal, Vertical, Diag, Anti-Diag
+
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                if (b[r][c].owner !== p || b[r][c].status !== STATUS_OPENED) continue;
+
+                for (let d of dirs) {
+                    let count = 1;
+                    let line = [{r,c}];
+                    // Check forward
+                    for (let i = 1; i < 5; i++) {
+                        let nr = r + d[0]*i, nc = c + d[1]*i;
+                        if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE) break;
+                        if (b[nr][nc].owner === p && b[nr][nc].status === STATUS_OPENED) {
+                            count++;
+                            line.push({r: nr, c: nc});
+                        } else break;
+                    }
+                    if (count >= 5) return { winner: p, line: line };
+                }
+            }
+        }
+        return null;
+    },
+
+    switchTurn: () => {
+        state.turnCount++;
+        state.currentPlayer = state.currentPlayer === PLAYER_1 ? PLAYER_2 : PLAYER_1;
+        view.updateStatus(`Player ${state.currentPlayer}'s Turn`);
+        
+        if (state.mode === 'ai' && state.currentPlayer !== state.myPlayerId) {
+            setTimeout(ai.makeMove, 1000);
+        }
+    },
+
+    endGame: (result) => {
+        state.isGameOver = true;
+        view.highlightWin(result.line);
+        const msg = `Player ${result.winner} Wins!`;
+        view.updateStatus(msg);
+        
+        setTimeout(() => {
+            document.getElementById('end-reason').innerText = msg;
+            document.getElementById('game-end-modal').classList.remove('hidden');
+            
+            if (state.mode === 'online') {
+                document.getElementById('online-end-controls').classList.remove('hidden');
+                document.getElementByI        button.primary { background: var(--accent); border: none; }
         
         #pass-overlay { background: #000; color: #fff; text-align: center; }
         #top-controls { position: fixed; bottom: 25px; right: 25px; display: flex; gap: 15px; z-index: 2000; }
