@@ -2,302 +2,404 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>sub5conscious</title>
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>sub5conscious Ver 2.6</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
-            --bg-color: #f0f2f5;
-            --text-color: #333;
-            --board-bg: #dcb35c;
-            --cell-border: #b58868;
-            --p1-color: #000;
-            --p2-color: #fff;
-            --highlight: rgba(0, 255, 0, 0.4);
-            --win-line: rgba(255, 0, 0, 0.7);
-            --panel-bg: rgba(255,255,255,0.9);
+            --bg: #050510; --line: #334; --p1: #00ffff; --p2: #ff00ff;
+            --text: #ccddff; --ui: rgba(10,10,20,0.98); --font: 'Courier New', monospace;
         }
-
-        [data-theme="dark"] {
-            --bg-color: #1a1a1a;
-            --text-color: #e0e0e0;
-            --board-bg: #8b6d3e;
-            --cell-border: #5c4033;
-            --panel-bg: rgba(30,30,30,0.9);
+        [data-theme="light"] {
+            --bg: #f2f4f6; --line: #b0b2b4; --p1: #006688; --p2: #880066; --text: #223;
         }
-
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
         body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            margin: 0;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            transition: background 0.3s, color 0.3s;
-            overflow: hidden; /* Prevent scroll on mobile */
+            margin: 0; background: var(--bg); color: var(--text); font-family: var(--font);
+            height: 100vh; overflow: hidden; user-select: none;
         }
-
-        /* --- Header & Controls --- */
-        #top-bar {
-            width: 100%;
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-sizing: border-box;
-            background: var(--panel-bg);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            z-index: 10;
-        }
-
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            background: #4a90e2;
-            color: white;
-            transition: 0.2s;
-            margin-left: 5px;
-        }
-        .btn:hover { opacity: 0.9; }
-        .btn-danger { background: #e74c3c; }
-        .btn-secondary { background: #95a5a6; }
-
-        /* --- Status Display (Top Center) --- */
-        #game-status {
-            position: absolute;
-            top: 60px;
-            width: 100%;
-            text-align: center;
-            font-size: 1.5rem;
-            font-weight: bold;
-            pointer-events: none;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            z-index: 20;
-            height: 40px;
-        }
-
-        /* --- Main Game Area --- */
-        #game-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-grow: 1;
-            position: relative;
-            width: 100%;
-            max-width: 600px;
-        }
-
-        #board {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            grid-template-rows: repeat(8, 1fr);
-            width: 90vmin;
-            height: 90vmin;
-            max-width: 500px;
-            max-height: 500px;
-            background-color: var(--board-bg);
-            border: 5px solid var(--cell-border);
-            position: relative;
-        }
-
-        .cell {
-            border: 1px solid var(--cell-border);
-            position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-        }
-
-        .stone {
-            width: 80%;
-            height: 80%;
-            border-radius: 50%;
-            box-shadow: 2px 2px 2px rgba(0,0,0,0.3);
-            transition: all 0.2s;
-        }
-
-        /* Cell Status Styles */
-        .stone.p1 { background-color: var(--p1-color); }
-        .stone.p2 { background-color: var(--p2-color); }
         
-        /* Stealth vs Opened */
-        .stone.stealth { opacity: 0.3; } /* Visible to owner */
-        .stone.opened { opacity: 1.0; border: 2px solid gold; }
-        .stone.hidden { display: none; } /* Hidden from opponent */
-
-        .cell.selected { background-color: var(--highlight); }
-        .cell.last-move { box-shadow: inset 0 0 10px rgba(0,0,255,0.5); }
-
-        /* Win Line Animation */
-        .win-line-cell {
-            background-color: rgba(255, 215, 0, 0.6) !important;
-            animation: pulse 1s infinite;
+        /* Scene Management */
+        .scene { display: none; width: 100%; height: 100%; flex-direction: column; position: absolute; }
+        .active { display: flex; }
+        
+        /* Layout: Type 1 "The Standard" */
+        .ui-bar { height: 85px; padding: 10px 20px; display: flex; flex-direction: column; justify-content: center; z-index: 50; }
+        .timer-info { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; letter-spacing: 1px; }
+        .bar-track { width: 100%; height: 8px; background: rgba(128,128,128,0.15); margin: 8px 0; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
+        .bar-fill { height: 100%; width: 100%; transition: width 0.1s linear, background 0.3s; }
+        
+        #stage { flex: 1; display: flex; justify-content: center; align-items: center; position: relative; padding: 10px; }
+        #grid { 
+            display: grid; grid-template-columns: repeat(8, 1fr); 
+            width: 100%; max-width: 480px; aspect-ratio: 1/1; 
+            border: 2px solid var(--line); background: rgba(255,255,255,0.02);
         }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
+        .cell { border: 0.5px solid var(--line); position: relative; cursor: pointer; transition: background 0.1s; }
+        .cell.act { background: rgba(255,255,255,0.1); }
+        
+        /* Pieces & Burst */
+        .pce { position: absolute; inset: 15%; border-radius: 50%; pointer-events: none; }
+        .stl { border: 2px dashed currentColor; opacity: 0.4; animation: pulse 1.5s infinite; }
+        .opn { background: currentColor; box-shadow: 0 0 15px currentColor; }
+        .ink-stain { position: absolute; inset: 0; opacity: 0.6; z-index: 1; } /* インクによる汚し */
+        
+        @keyframes pulse { 0%,100% {opacity: 0.2;} 50% {opacity: 0.6;} }
+        #fx { position: absolute; inset: 0; pointer-events: none; z-index: 100; }
 
-        /* --- Overlays & Modals --- */
-        .modal {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            flex-direction: column;
-        }
-        .modal-content {
-            background: var(--bg-color);
-            padding: 2rem;
-            border-radius: 8px;
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
-        .hidden { display: none !important; }
+        /* Controls */
+        .ctrl { display: flex; justify-content: space-around; align-items: center; padding: 5px; font-size: 28px; }
+        .sym { cursor: pointer; opacity: 0.7; transition: 0.2s; padding: 10px; }
+        .sym:hover { opacity: 1; transform: scale(1.1); }
+        .btn { padding: 16px 32px; border: 1px solid var(--text); background: transparent; color: inherit; cursor: pointer; font-family: inherit; font-size: 16px; letter-spacing: 4px; transition: 0.3s; }
+        .btn:hover { background: var(--text); color: var(--bg); }
+        
+        /* Lobby */
+        #lobby-container { flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:50px; text-align:center; }
+        .blink-cursor::after { content: '_'; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
 
-        .form-group { margin: 10px 0; text-align: left; }
-        label { display: block; margin-bottom: 5px; }
-        input, select { width: 100%; padding: 8px; box-sizing: border-box; }
-
-        /* Developer Mode & Analysis */
-        #dev-panel {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            background: rgba(0,0,0,0.9);
-            color: #0f0;
-            padding: 10px;
-            font-family: monospace;
-            font-size: 12px;
-            width: 100%;
-            box-sizing: border-box;
-            display: none;
-            z-index: 200;
-        }
+        /* Menu Overlay */
+        .menu-overlay { position: fixed; inset: 0; background: var(--ui); z-index: 1000; display: none; flex-direction: column; justify-content: center; align-items: center; gap: 25px; backdrop-filter: blur(5px); }
+        .status-msg { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <div id="top-bar">
-        <div>
-            <button class="btn" onclick="app.goHome()">HOME</button>
-            <button class="btn btn-secondary" onclick="app.toggleOptions()">Options</button>
+<div id="scene-home" class="scene active">
+    <div id="lobby-container">
+        <h1 style="letter-spacing:18px; margin:0; font-weight:normal;">sub5conscious</h1>
+        
+        <div id="host-view" style="display:none; flex-direction:column; align-items:center; gap:25px;">
+            <div class="status-msg blink-cursor">READY TO HOST</div>
+            <button id="copy-btn" class="btn" onclick="NET.copyLink()">GENERATE ROOM URL</button>
+            <p style="font-size:11px; opacity:0.5; max-width:300px; line-height:2;">
+                相手にURLを送り、この画面のまま待機してください。<br>接続されると自動で先手が決定し開始します。
+            </p>
         </div>
-        <div>
-            <button id="btn-reset" class="btn btn-danger hidden" onclick="game.resetGame()">Reset</button>
-            <button id="btn-retire" class="btn btn-danger hidden" onclick="game.retire()">Retire</button>
-        </div>
-    </div>
 
-    <div id="game-status"></div>
-
-    <div id="game-container">
-        <div id="board">
-            </div>
-    </div>
-
-    <div id="menu-overlay" class="modal">
-        <div class="modal-content">
-            <h2>sub5conscious</h2>
-            <p>潜在的五目 - Potential Gomoku</p>
-            <button class="btn" style="width:100%; margin:5px 0;" onclick="app.startLocal()">Offline (2P)</button>
-            <button class="btn" style="width:100%; margin:5px 0;" onclick="app.startAI()">Vs AI (CPU)</button>
-            <button class="btn" style="width:100%; margin:5px 0;" onclick="app.showOnlineMenu()">Online (P2P)</button>
-            <button class="btn btn-secondary" style="width:100%; margin:5px 0;" onclick="app.showAnalysis()">Analysis Mode</button>
+        <div id="guest-view" style="display:none; flex-direction:column; align-items:center; gap:25px;">
+            <div class="status-msg blink-cursor">CONNECTING</div>
+            <p style="font-size:13px; letter-spacing:3px;">WAITING FOR HANDSHAKE</p>
         </div>
     </div>
+</div>
 
-    <div id="online-menu" class="modal hidden">
-        <div class="modal-content">
-            <h3>Online Match</h3>
-            <div class="form-group">
-                <label>Room Password (ID)</label>
-                <input type="text" id="room-id" placeholder="Enter same ID to match">
-            </div>
-            <button class="btn" onclick="network.hostGame()">Create/Join Room</button>
-            <button class="btn btn-secondary" onclick="app.goHome()">Cancel</button>
-            <p id="online-status" style="font-size: 0.8em; margin-top:10px; color: #888;">Connecting to server...</p>
+<div id="scene-game" class="scene">
+    <div class="ui-bar">
+        <div class="timer-info">
+            <span id="p2-label">OPPONENT</span>
+            <span id="t2-val">--:-- [--]</span>
+        </div>
+        <div class="bar-track"><div id="f-p2" class="bar-fill"></div></div>
+    </div>
+
+    <div id="stage">
+        <canvas id="fx"></canvas>
+        <div id="grid"></div>
+    </div>
+
+    <div class="ui-bar">
+        <div class="bar-track"><div id="f-p1" class="bar-fill"></div></div>
+        <div class="timer-info">
+            <span id="t1-val">--:-- [--]</span>
+            <span id="turn-val">TURN 1</span>
+        </div>
+        <div class="ctrl">
+            <div class="sym" title="Reset" onclick="GAME.resetReq()">⟲</div>
+            <div class="sym" title="Menu" onclick="APP.toggleMenu()">≡</div>
+            <div class="sym" title="Home" onclick="APP.goHome()">⌂</div>
         </div>
     </div>
+</div>
 
-    <div id="options-menu" class="modal hidden">
-        <div class="modal-content">
-            <h3>Options</h3>
-            <div class="form-group">
-                <label>Theme</label>
-                <button class="btn btn-secondary" onclick="app.toggleTheme()">Toggle Dark/Light</button>
-            </div>
-            <div class="form-group">
-                <label>Timer</label>
-                <select id="timer-setting">
-                    <option value="0">No Timer</option>
-                    <option value="300">5 Minutes</option>
-                    <option value="600">10 Minutes</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Developer Mode</label>
-                <button class="btn btn-secondary" onclick="app.toggleDevMode()">Toggle Dev Mode</button>
-            </div>
-            <button class="btn" onclick="app.closeOptions()">Close</button>
+<div id="menu" class="menu-overlay">
+    <div style="text-align:center; border:1px solid #444; padding:40px; margin-bottom:10px;">
+        <h2 style="margin-top:0; letter-spacing:5px; font-weight:normal;">SETTINGS</h2>
+        <div style="display:grid; grid-template-columns: 140px 1fr; gap:20px; text-align:left; align-items:center;">
+            <label>TIME (S):</label>
+            <input type="number" id="cfg-t" value="300" style="width:80px; background:none; color:inherit; border:1px solid #666; padding:5px; font-family:inherit;">
+            <label>BYO (S):</label>
+            <input type="number" id="cfg-b" value="30" style="width:80px; background:none; color:inherit; border:1px solid #666; padding:5px; font-family:inherit;">
         </div>
     </div>
-
-    <div id="game-end-modal" class="modal hidden">
-        <div class="modal-content">
-            <h2 id="end-reason">Winner!</h2>
-            <div id="online-end-controls" class="hidden">
-                <button class="btn" onclick="network.requestRematch()">Rematch</button>
-                <button class="btn btn-danger" onclick="network.disconnect()">Retire/Exit</button>
-            </div>
-            <div id="offline-end-controls">
-                <button class="btn" onclick="game.resetGame()">Play Again</button>
-                <button class="btn btn-secondary" onclick="app.goHome()">Home</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="dev-panel">
-        <strong>DEVELOPER MODE</strong>
-        <button onclick="recorder.downloadKifu()">Download Kifu (JSON)</button>
-        <button onclick="ai.enhanceWithGemini()">Enhance AI (Gemini)</button>
-        <span id="dev-status">Ready.</span>
-    </div>
+    <button class="btn" onclick="APP.theme()">DARK/LIGHT</button>
+    <button class="btn" onclick="GAME.resignReq()">RESIGN (×)</button>
+    <button class="btn" onclick="APP.toggleMenu()">RETURN (↵)</button>
+</div>
 
 <script>
 /**
- * sub5conscious - Core Logic
+ * sub5conscious Ver 2.6 - Online P2P with Random Start
  */
 
-// --- Constants & Config ---
-const BOARD_SIZE = 8;
-const PLAYER_NONE = 0;
-const PLAYER_1 = 1;
-const PLAYER_2 = 2;
+const STATE = {
+    board: [], p: 1, actions: [], history: [], winner: null,
+    time: [300, 300], byo: [30, 30], isByo: [false, false],
+    conf: { t: 300, b: 30 }, timerInt: null, inkData: []
+};
 
-const STATUS_EMPTY = 'empty';
-const STATUS_STEALTH = 'stealth';
-const STATUS_OPENED = 'opened';
+const APP = {
+    init() {
+        FX.init();
+        NET.init();
+    },
+    switch(id) {
+        document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+        document.getElementById('scene-' + id).classList.add('active');
+    },
+    toggleMenu() {
+        const m = document.getElementById('menu');
+        m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    },
+    theme() {
+        const b = document.body;
+        b.dataset.theme = b.dataset.theme === 'light' ? 'dark' : 'light';
+    },
+    goHome() {
+        if(confirm("LOBBYに戻りますか？現在の通信は切断されます。")) {
+            window.location.hash = '';
+            location.reload();
+        }
+    }
+};
 
-// --- Global State ---
-const state = {
-    board: [], // 8x8 array of { owner, status }
-    currentPlayer: PLAYER_1,
-    turnCount: 0,
-    firstSelection: null, // {r, c}
-    mode: 'offline', // 'offline', 'ai', 'online', 'analysis'
-    myPlayerId: PLAYER_1, // For online/AI (1 or 2)
+const GAME = {
+    start(p1IsHost, t, b) {
+        STATE.board = Array.from({length: 64}, () => ({s:0, o:0}));
+        STATE.inkData = Array(64).fill(null);
+        STATE.p = 1; STATE.actions = []; STATE.winner = null; STATE.history = [];
+        STATE.conf.t = t; STATE.conf.b = b;
+        STATE.time = [t, t]; STATE.byo = [b, b];
+        STATE.isByo = [false, false];
+
+        // 自分がPlayer 1かどうかを確定
+        NET.myNum = (NET.role === 'HOST') ? (p1IsHost ? 1 : 2) : (p1IsHost ? 2 : 1);
+        
+        this.render();
+        if(this.timerInt) clearInterval(this.timerInt);
+        this.timerInt = setInterval(() => this.tick(), 100);
+        APP.switch('game');
+        
+        // ラベル更新
+        document.getElementById('p2-label').innerText = NET.myNum === 1 ? "PLAYER 2 (OPPONENT)" : "PLAYER 1 (OPPONENT)";
+        document.getElementById('t2-val').style.color = NET.myNum === 1 ? 'var(--p2)' : 'var(--p1)';
+        document.getElementById('t1-val').style.color = NET.myNum === 1 ? 'var(--p1)' : 'var(--p2)';
+    },
+
+    click(i) {
+        if(STATE.winner || (STATE.p !== NET.myNum)) return;
+        const cell = STATE.board[i];
+        
+        // 設計書準拠: 1手目キャンセルの挙動
+        if(cell.s === 2) { this.cancel(); return; }
+        if(STATE.actions.length === 1) {
+            const f = STATE.actions[0];
+            const dist = Math.abs(Math.floor(i/8)-Math.floor(f/8)) + Math.abs((i%8)-(f%8));
+            if(i !== f && dist !== 1) { this.cancel(); return; }
+        }
+
+        STATE.actions.push(i);
+        NET.send({type:'act', i});
+        this.render();
+        if(STATE.actions.length === 2) this.resolve();
+    },
+
+    cancel() {
+        STATE.actions = [];
+        NET.send({type:'cancel'});
+        this.render();
+    },
+
+    resolve() {
+        const turnP = STATE.p;
+        STATE.actions.forEach(idx => {
+            const c = STATE.board[idx];
+            if(c.s === 0) { c.s = 1; c.o = turnP; }
+            else if(c.s === 1) { 
+                c.s = 2; c.o = turnP; 
+                FX.burst(idx, turnP); 
+                STATE.inkData[idx] = turnP; // インクで汚す表現
+            }
+        });
+
+        STATE.history.push([...STATE.actions]);
+        if(this.winCheck()) { this.end(turnP); return; }
+
+        STATE.p = turnP === 1 ? 2 : 1;
+        STATE.byo[turnP-1] = STATE.conf.b; 
+        STATE.actions = [];
+        this.render();
+    },
+
+    winCheck() {
+        const b = STATE.board; const p = STATE.p;
+        const dirs = [1, 8, 9, 7];
+        for(let i=0; i<64; i++) {
+            if(b[i].s===2 && b[i].o===p) {
+                for(let d of dirs) {
+                    let c=1;
+                    for(let s=1; s<5; s++) {
+                        let n = i+d*s;
+                        if(n>=0 && n<64 && (n%8 >= i%8 || d!==7) && b[n].s===2 && b[n].o===p) c++; else break;
+                    }
+                    if(c>=5) return true;
+                }
+            }
+        }
+        return false;
+    },
+
+    tick() {
+        const idx = STATE.p - 1;
+        if(!STATE.isByo[idx]) {
+            STATE.time[idx] -= 0.1;
+            if(STATE.time[idx] <= 0) { STATE.time[idx] = 0; STATE.isByo[idx] = true; }
+        } else {
+            STATE.byo[idx] -= 0.1;
+            if(STATE.byo[idx] <= 0) this.end(STATE.p===1?2:1, "TIME UP");
+        }
+        this.updateClockUI();
+    },
+
+    updateClockUI() {
+        const fmt = (s) => {
+            const m = Math.floor(s/60); const sec = Math.floor(s%60);
+            return `${m}:${sec.toString().padStart(2,'0')}`;
+        };
+        const p1T = `${fmt(STATE.time[0])} [${Math.max(0, Math.ceil(STATE.byo[0]))}]`;
+        const p2T = `${fmt(STATE.time[1])} [${Math.max(0, Math.ceil(STATE.byo[1]))}]`;
+        
+        const myIdx = NET.myNum - 1;
+        const opIdx = myIdx === 0 ? 1 : 0;
+
+        document.getElementById('t1-val').innerText = (NET.myNum === 1 ? p1T : p2T);
+        document.getElementById('t2-val').innerText = (NET.myNum === 1 ? p2T : p1T);
+        
+        const f1 = document.getElementById('f-p1');
+        const f2 = document.getElementById('f-p2');
+        f1.style.width = (STATE.time[myIdx]/STATE.conf.t*100)+'%';
+        f2.style.width = (STATE.time[opIdx]/STATE.conf.t*100)+'%';
+        f1.style.background = STATE.time[myIdx] < 30 ? '#ff3300' : (NET.myNum === 1 ? 'var(--p1)' : 'var(--p2)');
+        f2.style.background = STATE.time[opIdx] < 30 ? '#ff3300' : (NET.myNum === 1 ? 'var(--p2)' : 'var(--p1)');
+    },
+
+    render() {
+        const g = document.getElementById('grid'); g.innerHTML = '';
+        STATE.board.forEach((c, i) => {
+            const d = document.createElement('div');
+            d.className = 'cell' + (STATE.actions.includes(i) ? ' act' : '');
+            if(STATE.inkData[i]) {
+                d.style.background = STATE.inkData[i] === 1 ? 'rgba(0,255,255,0.08)' : 'rgba(255,0,255,0.08)';
+            }
+            d.onclick = () => this.click(i);
+            if(c.s === 2) d.innerHTML = `<div class="pce opn" style="color:var(--p${c.o})"></div>`;
+            else if(c.s === 1 && c.o === NET.myNum) d.innerHTML = `<div class="pce stl" style="color:var(--p${c.o})"></div>`;
+            g.appendChild(d);
+        });
+        document.getElementById('turn-val').innerText = `TURN ${STATE.history.length + 1}`;
+    },
+
+    end(w, reason="") {
+        STATE.winner = w; clearInterval(this.timerInt);
+        const winColor = w === 1 ? "BLUE" : "MAGENTA";
+        alert(`PLAYER ${w} (${winColor}) WINS! ${reason}`);
+    },
+
+    resignReq() { if(confirm("投了しますか？")) { NET.send({type:'resign'}); this.end(NET.myNum===1?2:1, "(RESIGNED)"); APP.toggleMenu(); } },
+    resetReq() { if(confirm("記号のみの確認：⟲？")) { NET.send({type:'reset_req'}); } }
+};
+
+const NET = {
+    peer: null, conn: null, myNum: 1, role: 'HOST',
+    init() {
+        this.peer = new Peer();
+        const hashId = window.location.hash.replace('#', '');
+
+        this.peer.on('open', id => {
+            if(hashId) {
+                this.role = 'GUEST';
+                document.getElementById('guest-view').style.display = 'flex';
+                this.conn = this.peer.connect(hashId);
+                this.setup();
+            } else {
+                this.role = 'HOST';
+                this.myId = id;
+                document.getElementById('host-view').style.display = 'flex';
+            }
+        });
+
+        this.peer.on('connection', c => {
+            if(this.role === 'HOST') {
+                this.conn = c; this.setup();
+                this.conn.on('open', () => {
+                    // 先手のランダム決定 (Hostが計算してGuestへ通知)
+                    const p1IsHost = Math.random() < 0.5;
+                    const t = parseInt(document.getElementById('cfg-t').value);
+                    const b = parseInt(document.getElementById('cfg-b').value);
+                    this.send({type:'init', p1IsHost, t, b});
+                    GAME.start(p1IsHost, t, b);
+                });
+            }
+        });
+    },
+    copyLink() {
+        const url = window.location.origin + window.location.pathname + '#' + this.myId;
+        navigator.clipboard.writeText(url).then(() => {
+            const b = document.getElementById('copy-btn');
+            b.innerText = "URL COPIED";
+            setTimeout(() => b.innerText = "GENERATE ROOM URL", 2000);
+        });
+    },
+    setup() {
+        this.conn.on('data', d => {
+            if(d.type==='init') GAME.start(d.p1IsHost, d.t, d.b);
+            if(d.type==='act') { STATE.actions.push(d.i); GAME.render(); if(STATE.actions.length===2) GAME.resolve(); }
+            if(d.type==='cancel') GAME.cancel();
+            if(d.type==='resign') GAME.end(this.myNum, "(OPPONENT RESIGNED)");
+            if(d.type==='reset_req') { if(confirm("相手からリセット要請。同意しますか？")) { this.send({type:'reset_ok'}); GAME.start(NET.myNum===1, STATE.conf.t, STATE.conf.b); } }
+            if(d.type==='reset_ok') GAME.start(NET.myNum===1, STATE.conf.t, STATE.conf.b);
+        });
+        this.conn.on('close', () => { alert("DISCONNECTED"); location.reload(); });
+    },
+    send(d) { if(this.conn && this.conn.open) this.conn.send(d); }
+};
+
+const FX = {
+    pts: [],
+    init() {
+        const c = document.getElementById('fx'); const ctx = c.getContext('2d');
+        const loop = () => {
+            c.width = c.offsetWidth; c.height = c.offsetHeight;
+            ctx.clearRect(0,0,c.width,c.height);
+            this.pts.forEach((p,i) => {
+                p.x+=p.vx; p.y+=p.vy; p.vx*=0.95; p.vy*=0.95; p.l-=0.015;
+                ctx.globalAlpha = Math.max(0, p.l); ctx.fillStyle = p.c;
+                ctx.beginPath(); ctx.arc(p.x,p.y,p.s,0,7); ctx.fill();
+                if(p.l<=0) this.pts.splice(i,1);
+            });
+            requestAnimationFrame(loop);
+        };
+        loop();
+    },
+    burst(i, p) {
+        const r = document.getElementById('grid').getBoundingClientRect();
+        const cw = r.width/8;
+        const x = (i%8)*cw+cw/2; const y = Math.floor(i/8)*cw+cw/2;
+        const color = p===1 ? 'cyan' : 'magenta';
+        for(let n=0; n<50; n++) this.pts.push({
+            x, y, vx:(Math.random()-0.5)*20, vy:(Math.random()-0.5)*20,
+            l:1, s:Math.random()*6+1, c:color
+        });
+    }
+};
+
+APP.init();
+</script>
+</body>
+</html>
+
+R_1, // For online/AI (1 or 2)
     isGameOver: false,
     timer: { p1: 0, p2: 0, active: false },
     theme: 'light',
