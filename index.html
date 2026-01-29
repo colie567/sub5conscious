@@ -3,84 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sub5conscious Ver 2.6</title>
+    <title>sub5conscious Ver 2.7 - Competitive</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
-            --bg: #050510; --line: #334; --p1: #00ffff; --p2: #ff00ff;
-            --text: #ccddff; --ui: rgba(10,10,20,0.98); --font: 'Courier New', monospace;
+            --bg: #030308; --line: #222530; --p1: #00f0ff; --p2: #ff00c8;
+            --text: #c0c5d0; --ui-bg: rgba(5, 7, 15, 0.98); --font: 'Courier New', monospace;
         }
-        [data-theme="light"] {
-            --bg: #f2f4f6; --line: #b0b2b4; --p1: #006688; --p2: #880066; --text: #223;
-        }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
         body {
             margin: 0; background: var(--bg); color: var(--text); font-family: var(--font);
             height: 100vh; overflow: hidden; user-select: none;
         }
         
-        /* Scene Management */
+        /* SCENES */
         .scene { display: none; width: 100%; height: 100%; flex-direction: column; position: absolute; }
         .active { display: flex; }
         
-        /* Layout: Type 1 "The Standard" */
-        .ui-bar { height: 85px; padding: 10px 20px; display: flex; flex-direction: column; justify-content: center; z-index: 50; }
-        .timer-info { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; letter-spacing: 1px; }
-        .bar-track { width: 100%; height: 8px; background: rgba(128,128,128,0.15); margin: 8px 0; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
-        .bar-fill { height: 100%; width: 100%; transition: width 0.1s linear, background 0.3s; }
+        /* LOBBY UI */
+        #lobby { justify-content: center; align-items: center; text-align: center; gap: 30px; }
+        .room-box { background: rgba(255,255,255,0.03); border: 1px solid var(--line); padding: 30px; width: 320px; }
+        input[type="text"] { 
+            background: #000; border: 1px solid #444; color: var(--p1); 
+            padding: 12px; width: 100%; text-align: center; font-family: inherit; margin-bottom: 15px;
+        }
+        .loading-spin { border: 2px solid #222; border-top: 2px solid var(--p1); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* GAME LAYOUT (TYPE 1) */
+        .ui-bar { height: 90px; padding: 10px 20px; display: flex; flex-direction: column; justify-content: center; border-bottom: 1px solid var(--line); }
+        .bottom-bar { border-bottom: none; border-top: 1px solid var(--line); }
+        .timer-info { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; font-variant-numeric: tabular-nums; }
+        .bar-track { width: 100%; height: 4px; background: #111; margin: 10px 0; position: relative; }
+        .bar-fill { height: 100%; width: 100%; transition: width 0.1s linear; }
+
+        #stage { flex: 1; display: flex; justify-content: center; align-items: center; position: relative; background: radial-gradient(circle, #0a0a15 0%, #030308 100%); }
         
-        #stage { flex: 1; display: flex; justify-content: center; align-items: center; position: relative; padding: 10px; }
+        /* GRID & COORDINATES */
+        .grid-container { position: relative; padding: 25px; border: 1px solid var(--line); }
         #grid { 
             display: grid; grid-template-columns: repeat(8, 1fr); 
-            width: 100%; max-width: 480px; aspect-ratio: 1/1; 
-            border: 2px solid var(--line); background: rgba(255,255,255,0.02);
+            width: 80vw; height: 80vw; max-width: 480px; max-height: 480px;
         }
-        .cell { border: 0.5px solid var(--line); position: relative; cursor: pointer; transition: background 0.1s; }
-        .cell.act { background: rgba(255,255,255,0.1); }
+        .cell { border: 0.5px solid var(--line); position: relative; cursor: pointer; }
+        .cell::before { content: attr(data-coord); position: absolute; top: 2px; left: 2px; font-size: 8px; color: #444; pointer-events: none; }
         
-        /* Pieces & Burst */
-        .pce { position: absolute; inset: 15%; border-radius: 50%; pointer-events: none; }
-        .stl { border: 2px dashed currentColor; opacity: 0.4; animation: pulse 1.5s infinite; }
-        .opn { background: currentColor; box-shadow: 0 0 15px currentColor; }
-        .ink-stain { position: absolute; inset: 0; opacity: 0.6; z-index: 1; } /* インクによる汚し */
+        /* Coordinate Labels */
+        .axis-h { position: absolute; bottom: 0; left: 25px; right: 25px; display: flex; justify-content: space-around; font-size: 10px; color: #666; height: 20px; align-items: center; }
+        .axis-v { position: absolute; left: 0; top: 25px; bottom: 25px; display: flex; flex-direction: column; justify-content: space-around; font-size: 10px; color: #666; width: 20px; align-items: center; }
+
+        /* PIECES */
+        .pce { position: absolute; inset: 15%; border-radius: 50%; pointer-events: none; transition: 0.3s; }
+        .stl { border: 2px dashed currentColor; opacity: 0.5; animation: blink 2s infinite; }
+        .opn { background: currentColor; box-shadow: 0 0 20px currentColor; }
+        @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.6; } }
         
-        @keyframes pulse { 0%,100% {opacity: 0.2;} 50% {opacity: 0.6;} }
         #fx { position: absolute; inset: 0; pointer-events: none; z-index: 100; }
 
-        /* Controls */
-        .ctrl { display: flex; justify-content: space-around; align-items: center; padding: 5px; font-size: 28px; }
-        .sym { cursor: pointer; opacity: 0.7; transition: 0.2s; padding: 10px; }
-        .sym:hover { opacity: 1; transform: scale(1.1); }
-        .btn { padding: 16px 32px; border: 1px solid var(--text); background: transparent; color: inherit; cursor: pointer; font-family: inherit; font-size: 16px; letter-spacing: 4px; transition: 0.3s; }
-        .btn:hover { background: var(--text); color: var(--bg); }
-        
-        /* Lobby */
-        #lobby-container { flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:50px; text-align:center; }
-        .blink-cursor::after { content: '_'; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0; } }
+        /* BUTTONS */
+        .btn { border: 1px solid var(--text); background: transparent; color: inherit; padding: 12px 20px; cursor: pointer; font-family: inherit; font-size: 13px; letter-spacing: 2px; transition: 0.2s; }
+        .btn:hover { background: var(--text); color: #000; }
+        .ctrl-btns { display: flex; justify-content: space-around; font-size: 24px; padding: 5px; }
+        .sym { cursor: pointer; opacity: 0.6; }
+        .sym:hover { opacity: 1; }
 
-        /* Menu Overlay */
-        .menu-overlay { position: fixed; inset: 0; background: var(--ui); z-index: 1000; display: none; flex-direction: column; justify-content: center; align-items: center; gap: 25px; backdrop-filter: blur(5px); }
-        .status-msg { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+        .menu-overlay { position: fixed; inset: 0; background: var(--ui-bg); z-index: 200; display: none; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
     </style>
 </head>
 <body>
 
 <div id="scene-home" class="scene active">
-    <div id="lobby-container">
-        <h1 style="letter-spacing:18px; margin:0; font-weight:normal;">sub5conscious</h1>
-        
-        <div id="host-view" style="display:none; flex-direction:column; align-items:center; gap:25px;">
-            <div class="status-msg blink-cursor">READY TO HOST</div>
-            <button id="copy-btn" class="btn" onclick="NET.copyLink()">GENERATE ROOM URL</button>
-            <p style="font-size:11px; opacity:0.5; max-width:300px; line-height:2;">
-                相手にURLを送り、この画面のまま待機してください。<br>接続されると自動で先手が決定し開始します。
-            </p>
+    <div id="lobby">
+        <h1 style="letter-spacing:15px; font-weight:lighter;">sub5conscious</h1>
+        <div class="room-box">
+            <button class="btn" onclick="NET.createRoom()" style="width:100%;">CREATE ROOM</button>
+            <p style="font-size:10px; margin:20px 0;">- OR -</p>
+            <input type="text" id="join-id" placeholder="ENTER ROOM ID">
+            <button class="btn" onclick="NET.joinRoom()" style="width:100%;">JOIN ROOM</button>
         </div>
+    </div>
+</div>
 
-        <div id="guest-view" style="display:none; flex-direction:column; align-items:center; gap:25px;">
-            <div class="status-msg blink-cursor">CONNECTING</div>
-            <p style="font-size:13px; letter-spacing:3px;">WAITING FOR HANDSHAKE</p>
+<div id="scene-wait" class="scene">
+    <div id="lobby">
+        <h2 style="letter-spacing:5px;">WAITING FOR GUEST</h2>
+        <div class="room-box">
+            <p style="font-size:10px; color:var(--p1);">ROOM ID (CLICK TO COPY)</p>
+            <h3 id="display-id" style="cursor:pointer; letter-spacing:2px; background:#000; padding:15px; border:1px solid var(--p1);" onclick="NET.copyID()">---</h3>
+            <div class="loading-spin"></div>
+            <button class="btn" onclick="location.reload()" style="font-size:10px;">CANCEL</button>
         </div>
     </div>
 </div>
@@ -88,62 +99,57 @@
 <div id="scene-game" class="scene">
     <div class="ui-bar">
         <div class="timer-info">
-            <span id="p2-label">OPPONENT</span>
-            <span id="t2-val">--:-- [--]</span>
+            <span id="label-op">OPPONENT</span>
+            <span id="t2-val">05:00 [30]</span>
         </div>
-        <div class="bar-track"><div id="f-p2" class="bar-fill"></div></div>
+        <div class="bar-track"><div id="f-p2" class="bar-fill" style="background:var(--p2)"></div></div>
     </div>
 
     <div id="stage">
-        <canvas id="fx"></canvas>
-        <div id="grid"></div>
+        <div class="grid-container">
+            <div class="axis-v"><span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div>
+            <div id="grid"></div>
+            <div class="axis-h"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div>
+            <canvas id="fx"></canvas>
+        </div>
     </div>
 
-    <div class="ui-bar">
-        <div class="bar-track"><div id="f-p1" class="bar-fill"></div></div>
+    <div class="ui-bar bottom-bar">
+        <div class="bar-track"><div id="f-p1" class="bar-fill" style="background:var(--p1)"></div></div>
         <div class="timer-info">
-            <span id="t1-val">--:-- [--]</span>
+            <span id="t1-val">05:00 [30]</span>
             <span id="turn-val">TURN 1</span>
         </div>
-        <div class="ctrl">
-            <div class="sym" title="Reset" onclick="GAME.resetReq()">⟲</div>
-            <div class="sym" title="Menu" onclick="APP.toggleMenu()">≡</div>
-            <div class="sym" title="Home" onclick="APP.goHome()">⌂</div>
+        <div class="ctrl-btns">
+            <div class="sym" onclick="GAME.resetReq()">⟲</div>
+            <div class="sym" onclick="APP.toggleMenu()">≡</div>
+            <div class="sym" onclick="GAME.resignReq()">×</div>
         </div>
     </div>
 </div>
 
 <div id="menu" class="menu-overlay">
-    <div style="text-align:center; border:1px solid #444; padding:40px; margin-bottom:10px;">
-        <h2 style="margin-top:0; letter-spacing:5px; font-weight:normal;">SETTINGS</h2>
-        <div style="display:grid; grid-template-columns: 140px 1fr; gap:20px; text-align:left; align-items:center;">
-            <label>TIME (S):</label>
-            <input type="number" id="cfg-t" value="300" style="width:80px; background:none; color:inherit; border:1px solid #666; padding:5px; font-family:inherit;">
-            <label>BYO (S):</label>
-            <input type="number" id="cfg-b" value="30" style="width:80px; background:none; color:inherit; border:1px solid #666; padding:5px; font-family:inherit;">
-        </div>
+    <div style="text-align:center; padding:30px; border:1px solid #333;">
+        <h3 style="margin:0 0 20px 0;">MATCH SETTINGS</h3>
+        <label>TIME: <input type="number" id="cfg-t" value="300" style="width:60px; background:none; border:1px solid #555; color:#fff; text-align:center;">s</label><br><br>
+        <label>BYO : <input type="number" id="cfg-b" value="30" style="width:60px; background:none; border:1px solid #555; color:#fff; text-align:center;">s</label>
     </div>
-    <button class="btn" onclick="APP.theme()">DARK/LIGHT</button>
-    <button class="btn" onclick="GAME.resignReq()">RESIGN (×)</button>
-    <button class="btn" onclick="APP.toggleMenu()">RETURN (↵)</button>
+    <button class="btn" onclick="APP.toggleMenu()">CONTINUE</button>
+    <button class="btn" onclick="location.reload()">EXIT GAME</button>
 </div>
 
 <script>
 /**
- * sub5conscious Ver 2.6 - Online P2P with Random Start
+ * sub5conscious Ver 2.7 - Highly Competitive Version
  */
 
 const STATE = {
     board: [], p: 1, actions: [], history: [], winner: null,
     time: [300, 300], byo: [30, 30], isByo: [false, false],
-    conf: { t: 300, b: 30 }, timerInt: null, inkData: []
+    conf: { t: 300, b: 30 }, timerInt: null
 };
 
 const APP = {
-    init() {
-        FX.init();
-        NET.init();
-    },
     switch(id) {
         document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
         document.getElementById('scene-' + id).classList.add('active');
@@ -151,52 +157,50 @@ const APP = {
     toggleMenu() {
         const m = document.getElementById('menu');
         m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
-    },
-    theme() {
-        const b = document.body;
-        b.dataset.theme = b.dataset.theme === 'light' ? 'dark' : 'light';
-    },
-    goHome() {
-        if(confirm("LOBBYに戻りますか？現在の通信は切断されます。")) {
-            window.location.hash = '';
-            location.reload();
-        }
     }
 };
 
 const GAME = {
     start(p1IsHost, t, b) {
         STATE.board = Array.from({length: 64}, () => ({s:0, o:0}));
-        STATE.inkData = Array(64).fill(null);
         STATE.p = 1; STATE.actions = []; STATE.winner = null; STATE.history = [];
         STATE.conf.t = t; STATE.conf.b = b;
         STATE.time = [t, t]; STATE.byo = [b, b];
         STATE.isByo = [false, false];
 
-        // 自分がPlayer 1かどうかを確定
         NET.myNum = (NET.role === 'HOST') ? (p1IsHost ? 1 : 2) : (p1IsHost ? 2 : 1);
         
-        this.render();
+        this.initGrid();
         if(this.timerInt) clearInterval(this.timerInt);
         this.timerInt = setInterval(() => this.tick(), 100);
-        APP.switch('game');
         
-        // ラベル更新
-        document.getElementById('p2-label').innerText = NET.myNum === 1 ? "PLAYER 2 (OPPONENT)" : "PLAYER 1 (OPPONENT)";
-        document.getElementById('t2-val').style.color = NET.myNum === 1 ? 'var(--p2)' : 'var(--p1)';
-        document.getElementById('t1-val').style.color = NET.myNum === 1 ? 'var(--p1)' : 'var(--p2)';
+        APP.switch('game');
+        document.getElementById('label-op').innerText = `OPPONENT (P${NET.myNum===1?2:1})`;
+    },
+
+    initGrid() {
+        const g = document.getElementById('grid'); g.innerHTML = '';
+        const cols = ['A','B','C','D','E','F','G','H'];
+        for(let i=0; i<64; i++) {
+            const d = document.createElement('div');
+            d.className = 'cell';
+            const coord = cols[i%8] + (8 - Math.floor(i/8));
+            d.setAttribute('data-coord', coord);
+            d.onclick = () => this.click(i);
+            g.appendChild(d);
+        }
     },
 
     click(i) {
-        if(STATE.winner || (STATE.p !== NET.myNum)) return;
+        if(STATE.winner || STATE.p !== NET.myNum) return;
         const cell = STATE.board[i];
         
-        // 設計書準拠: 1手目キャンセルの挙動
-        if(cell.s === 2) { this.cancel(); return; }
+        // 1手目キャンセル：自駒のOpen駒(s=2)をタップするか、1手目の無効距離タップ
+        if(cell.s === 2) { this.cancelMove(); return; }
         if(STATE.actions.length === 1) {
             const f = STATE.actions[0];
             const dist = Math.abs(Math.floor(i/8)-Math.floor(f/8)) + Math.abs((i%8)-(f%8));
-            if(i !== f && dist !== 1) { this.cancel(); return; }
+            if(i !== f && dist !== 1) { this.cancelMove(); return; }
         }
 
         STATE.actions.push(i);
@@ -205,7 +209,7 @@ const GAME = {
         if(STATE.actions.length === 2) this.resolve();
     },
 
-    cancel() {
+    cancelMove() {
         STATE.actions = [];
         NET.send({type:'cancel'});
         this.render();
@@ -216,15 +220,11 @@ const GAME = {
         STATE.actions.forEach(idx => {
             const c = STATE.board[idx];
             if(c.s === 0) { c.s = 1; c.o = turnP; }
-            else if(c.s === 1) { 
-                c.s = 2; c.o = turnP; 
-                FX.burst(idx, turnP); 
-                STATE.inkData[idx] = turnP; // インクで汚す表現
-            }
+            else if(c.s === 1) { c.s = 2; c.o = turnP; FX.burst(idx, turnP); }
         });
 
         STATE.history.push([...STATE.actions]);
-        if(this.winCheck()) { this.end(turnP); return; }
+        if(this.winCheck()) { this.endMatch(turnP); return; }
 
         STATE.p = turnP === 1 ? 2 : 1;
         STATE.byo[turnP-1] = STATE.conf.b; 
@@ -241,7 +241,13 @@ const GAME = {
                     let c=1;
                     for(let s=1; s<5; s++) {
                         let n = i+d*s;
-                        if(n>=0 && n<64 && (n%8 >= i%8 || d!==7) && b[n].s===2 && b[n].o===p) c++; else break;
+                        if(n>=0 && n<64) {
+                            // 横方向の境界チェック
+                            if(d===1 && Math.floor(n/8)!==Math.floor(i/8)) break;
+                            if(d===9 && n%8 <= i%8) break;
+                            if(d===7 && n%8 >= i%8) break;
+                            if(b[n].s===2 && b[n].o===p) c++; else break;
+                        } else break;
                     }
                     if(c>=5) return true;
                 }
@@ -257,107 +263,97 @@ const GAME = {
             if(STATE.time[idx] <= 0) { STATE.time[idx] = 0; STATE.isByo[idx] = true; }
         } else {
             STATE.byo[idx] -= 0.1;
-            if(STATE.byo[idx] <= 0) this.end(STATE.p===1?2:1, "TIME UP");
+            if(STATE.byo[idx] <= 0) this.endMatch(STATE.p===1?2:1, "TIME UP");
         }
         this.updateClockUI();
     },
 
     updateClockUI() {
         const fmt = (s) => {
-            const m = Math.floor(s/60); const sec = Math.floor(s%60);
-            return `${m}:${sec.toString().padStart(2,'0')}`;
+            const m = Math.floor(Math.max(0,s)/60); const sec = Math.floor(Math.max(0,s)%60);
+            return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
         };
-        const p1T = `${fmt(STATE.time[0])} [${Math.max(0, Math.ceil(STATE.byo[0]))}]`;
-        const p2T = `${fmt(STATE.time[1])} [${Math.max(0, Math.ceil(STATE.byo[1]))}]`;
+        const p1Val = `${fmt(STATE.time[0])} [${Math.ceil(STATE.byo[0])}]`;
+        const p2Val = `${fmt(STATE.time[1])} [${Math.ceil(STATE.byo[1])}]`;
         
         const myIdx = NET.myNum - 1;
         const opIdx = myIdx === 0 ? 1 : 0;
 
-        document.getElementById('t1-val').innerText = (NET.myNum === 1 ? p1T : p2T);
-        document.getElementById('t2-val').innerText = (NET.myNum === 1 ? p2T : p1T);
+        document.getElementById('t1-val').innerText = (NET.myNum === 1 ? p1Val : p2Val);
+        document.getElementById('t2-val').innerText = (NET.myNum === 1 ? p2Val : p1Val);
         
-        const f1 = document.getElementById('f-p1');
-        const f2 = document.getElementById('f-p2');
-        f1.style.width = (STATE.time[myIdx]/STATE.conf.t*100)+'%';
-        f2.style.width = (STATE.time[opIdx]/STATE.conf.t*100)+'%';
-        f1.style.background = STATE.time[myIdx] < 30 ? '#ff3300' : (NET.myNum === 1 ? 'var(--p1)' : 'var(--p2)');
-        f2.style.background = STATE.time[opIdx] < 30 ? '#ff3300' : (NET.myNum === 1 ? 'var(--p2)' : 'var(--p1)');
+        document.getElementById('f-p1').style.width = (STATE.time[myIdx]/STATE.conf.t*100)+'%';
+        document.getElementById('f-p2').style.width = (STATE.time[opIdx]/STATE.conf.t*100)+'%';
     },
 
     render() {
-        const g = document.getElementById('grid'); g.innerHTML = '';
+        const cells = document.querySelectorAll('.cell');
         STATE.board.forEach((c, i) => {
-            const d = document.createElement('div');
-            d.className = 'cell' + (STATE.actions.includes(i) ? ' act' : '');
-            if(STATE.inkData[i]) {
-                d.style.background = STATE.inkData[i] === 1 ? 'rgba(0,255,255,0.08)' : 'rgba(255,0,255,0.08)';
+            cells[i].innerHTML = '';
+            cells[i].classList.remove('act');
+            if(STATE.actions.includes(i)) cells[i].classList.add('act');
+
+            // 競技用ステルスロジック:
+            // s=2(開示)は全員に見える。s=1(潜伏)はオーナーにしか見えない。
+            if(c.s === 2) {
+                const color = c.o === 1 ? 'var(--p1)' : 'var(--p2)';
+                cells[i].innerHTML = `<div class="pce opn" style="color:${color}"></div>`;
+            } else if(c.s === 1 && c.o === NET.myNum) {
+                const color = c.o === 1 ? 'var(--p1)' : 'var(--p2)';
+                cells[i].innerHTML = `<div class="pce stl" style="color:${color}"></div>`;
             }
-            d.onclick = () => this.click(i);
-            if(c.s === 2) d.innerHTML = `<div class="pce opn" style="color:var(--p${c.o})"></div>`;
-            else if(c.s === 1 && c.o === NET.myNum) d.innerHTML = `<div class="pce stl" style="color:var(--p${c.o})"></div>`;
-            g.appendChild(d);
         });
         document.getElementById('turn-val').innerText = `TURN ${STATE.history.length + 1}`;
     },
 
-    end(w, reason="") {
+    endMatch(w, reason="") {
         STATE.winner = w; clearInterval(this.timerInt);
-        const winColor = w === 1 ? "BLUE" : "MAGENTA";
-        alert(`PLAYER ${w} (${winColor}) WINS! ${reason}`);
+        alert(`PLAYER ${w} WINS! ${reason}`);
     },
 
-    resignReq() { if(confirm("投了しますか？")) { NET.send({type:'resign'}); this.end(NET.myNum===1?2:1, "(RESIGNED)"); APP.toggleMenu(); } },
-    resetReq() { if(confirm("記号のみの確認：⟲？")) { NET.send({type:'reset_req'}); } }
+    resignReq() { if(confirm("RESIGN? (×)")) { NET.send({type:'resign'}); this.endMatch(NET.myNum===1?2:1, "(RESIGNED)"); } },
+    resetReq() { if(confirm("REQUEST RESET? (⟲)")) { NET.send({type:'reset_req'}); } }
 };
 
 const NET = {
-    peer: null, conn: null, myNum: 1, role: 'HOST',
+    peer: null, conn: null, myNum: 1, role: '',
     init() {
         this.peer = new Peer();
-        const hashId = window.location.hash.replace('#', '');
-
-        this.peer.on('open', id => {
-            if(hashId) {
-                this.role = 'GUEST';
-                document.getElementById('guest-view').style.display = 'flex';
-                this.conn = this.peer.connect(hashId);
-                this.setup();
-            } else {
-                this.role = 'HOST';
-                this.myId = id;
-                document.getElementById('host-view').style.display = 'flex';
-            }
-        });
-
+        this.peer.on('open', id => this.myId = id);
         this.peer.on('connection', c => {
-            if(this.role === 'HOST') {
-                this.conn = c; this.setup();
-                this.conn.on('open', () => {
-                    // 先手のランダム決定 (Hostが計算してGuestへ通知)
-                    const p1IsHost = Math.random() < 0.5;
-                    const t = parseInt(document.getElementById('cfg-t').value);
-                    const b = parseInt(document.getElementById('cfg-b').value);
-                    this.send({type:'init', p1IsHost, t, b});
-                    GAME.start(p1IsHost, t, b);
-                });
-            }
+            this.conn = c; this.role = 'HOST'; this.setup();
+            this.conn.on('open', () => {
+                const p1IsHost = Math.random() < 0.5;
+                const t = parseInt(document.getElementById('cfg-t').value);
+                const b = parseInt(document.getElementById('cfg-b').value);
+                this.send({type:'init', p1IsHost, t, b});
+                GAME.start(p1IsHost, t, b);
+            });
         });
     },
-    copyLink() {
-        const url = window.location.origin + window.location.pathname + '#' + this.myId;
-        navigator.clipboard.writeText(url).then(() => {
-            const b = document.getElementById('copy-btn');
-            b.innerText = "URL COPIED";
-            setTimeout(() => b.innerText = "GENERATE ROOM URL", 2000);
-        });
+    createRoom() {
+        if(!this.myId) return alert("P2P Initializing...");
+        this.role = 'HOST';
+        document.getElementById('display-id').innerText = this.myId;
+        APP.switch('wait');
+    },
+    joinRoom() {
+        const id = document.getElementById('join-id').value;
+        if(!id) return alert("ENTER ROOM ID");
+        this.role = 'GUEST';
+        this.conn = this.peer.connect(id);
+        this.setup();
+    },
+    copyID() {
+        navigator.clipboard.writeText(this.myId).then(() => alert("ID COPIED"));
     },
     setup() {
         this.conn.on('data', d => {
             if(d.type==='init') GAME.start(d.p1IsHost, d.t, d.b);
             if(d.type==='act') { STATE.actions.push(d.i); GAME.render(); if(STATE.actions.length===2) GAME.resolve(); }
-            if(d.type==='cancel') GAME.cancel();
-            if(d.type==='resign') GAME.end(this.myNum, "(OPPONENT RESIGNED)");
-            if(d.type==='reset_req') { if(confirm("相手からリセット要請。同意しますか？")) { this.send({type:'reset_ok'}); GAME.start(NET.myNum===1, STATE.conf.t, STATE.conf.b); } }
+            if(d.type==='cancel') GAME.cancelMove();
+            if(d.type==='resign') GAME.endMatch(NET.myNum, "(OPPONENT RESIGNED)");
+            if(d.type==='reset_req') { if(confirm("ACCEPT RESET?")) { this.send({type:'reset_ok'}); GAME.start(NET.myNum===1, STATE.conf.t, STATE.conf.b); } }
             if(d.type==='reset_ok') GAME.start(NET.myNum===1, STATE.conf.t, STATE.conf.b);
         });
         this.conn.on('close', () => { alert("DISCONNECTED"); location.reload(); });
@@ -373,7 +369,7 @@ const FX = {
             c.width = c.offsetWidth; c.height = c.offsetHeight;
             ctx.clearRect(0,0,c.width,c.height);
             this.pts.forEach((p,i) => {
-                p.x+=p.vx; p.y+=p.vy; p.vx*=0.95; p.vy*=0.95; p.l-=0.015;
+                p.x+=p.vx; p.y+=p.vy; p.vx*=0.96; p.vy*=0.96; p.l-=0.02;
                 ctx.globalAlpha = Math.max(0, p.l); ctx.fillStyle = p.c;
                 ctx.beginPath(); ctx.arc(p.x,p.y,p.s,0,7); ctx.fill();
                 if(p.l<=0) this.pts.splice(i,1);
@@ -386,15 +382,16 @@ const FX = {
         const r = document.getElementById('grid').getBoundingClientRect();
         const cw = r.width/8;
         const x = (i%8)*cw+cw/2; const y = Math.floor(i/8)*cw+cw/2;
-        const color = p===1 ? 'cyan' : 'magenta';
-        for(let n=0; n<50; n++) this.pts.push({
-            x, y, vx:(Math.random()-0.5)*20, vy:(Math.random()-0.5)*20,
-            l:1, s:Math.random()*6+1, c:color
+        const color = p===1 ? '#00f0ff' : '#ff00c8';
+        for(let n=0; n<40; n++) this.pts.push({
+            x, y, vx:(Math.random()-0.5)*18, vy:(Math.random()-0.5)*18,
+            l:1, s:Math.random()*5+1, c:color
         });
     }
 };
 
-APP.init();
+NET.init();
+FX.init();
 </script>
 </body>
 </html>
